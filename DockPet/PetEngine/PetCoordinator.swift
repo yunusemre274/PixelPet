@@ -98,20 +98,14 @@ final class PetCoordinator {
     }
 
     private func applyActivityLevel() {
-        let baseSpeed = CGFloat(manifest?.movement?.walkSpeed ?? 30.0)
+        let baseSpeed = CGFloat(manifest?.movement?.walkSpeed ?? 110.0)
         switch activityLevel {
         case .calm:
-            stateMachine.idleDurationRange = 4.0...10.0
-            stateMachine.walkDurationRange = 2.0...5.0
             movement.speed = baseSpeed * 0.75
         case .normal:
-            stateMachine.idleDurationRange = 2.0...6.0
-            stateMachine.walkDurationRange = 3.0...8.0
             movement.speed = baseSpeed
         case .energetic:
-            stateMachine.idleDurationRange = 1.0...3.0
-            stateMachine.walkDurationRange = 4.0...10.0
-            movement.speed = baseSpeed * 1.4
+            movement.speed = baseSpeed * 1.35
         }
     }
 
@@ -252,12 +246,24 @@ final class PetCoordinator {
 
         switch newState {
         case .walking:
-            // Ramp up to high refresh rate (60-120Hz) for fluid animation
+            // Ramp up to high refresh rate (60-120Hz) for fluid walk animation
             displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 60)
-            movement.startMoving()
-        case .idle, .sleeping, .interaction, .specialAnimation:
-            // Throttle to 5-10Hz when stationary to save energy
+            if let dockInfo {
+                let bounds = DockGeometry.movementBounds(dockInfo: dockInfo, petSize: currentPetDisplaySize)
+                movement.startMoving(bounds: bounds)
+            } else {
+                movement.startMoving()
+            }
+        case .specialAnimation:
+            // 30-60Hz during skill animation
+            displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 30)
+            movement.stopMoving()
+        case .sleeping:
+            // Throttle to 5-10Hz when sleeping to save energy
             displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 5, maximum: 10, preferred: 5)
+            movement.stopMoving()
+        case .idle, .interaction:
+            displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 30, preferred: 15)
             movement.stopMoving()
         }
 
@@ -275,8 +281,8 @@ final class PetCoordinator {
         }
 
         let config = manifest?.animations[animationName]
-        let fps = config?.fps ?? 4.0
-        let loop = config?.loop ?? true
+        let fps = config?.fps ?? (state == .specialAnimation ? 6.0 : 4.0)
+        let loop = (state == .specialAnimation || state == .walking || state == .sleeping) ? true : (config?.loop ?? false)
 
         spriteView.setAnimation(frames: frames, fps: fps, loop: loop)
     }

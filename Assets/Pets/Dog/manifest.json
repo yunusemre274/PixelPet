@@ -26,11 +26,11 @@
     },
     "special": {
       "fps": 6.0,
-      "loop": false
+      "loop": true
     }
   },
   "movement": {
-    "walkSpeed": 30.0,
-    "runSpeed": 60.0
+    "walkSpeed": 110.0,
+    "runSpeed": 160.0
   }
 }

@@ -19,24 +19,26 @@
   - **Cristiano Ronaldo**: SIU spin & landing celebration + Champions League trophy lift
   - **Lionel Messi**: Goal celebration slide + World Cup trophy lift
   - **Turtle**: Full protective shell retreat & peek animation
-- **Advanced State Machine & Pet Behavior** (M5/M17/M20):
-  - States: `idle`, `walking`, `sleeping`, `interaction`, `specialAnimation`
-  - Periodic 15–30s signature special animations
-  - Active time tracking: after cumulative 2 minutes (120s) of activity (idle+walking), pet enters a 30s restorative sleep
-  - Interactive reaction animations with click feedback and native `Pop` sound
-- PetMovement: horizontal/vertical movement physics with boundary collision turnaround and orientation-aware direction (M4/M9)
+- **Deterministic 25-Second Behavioral Loop & Full Dock Traversal** (M5/M17/M20, ADR-018):
+  - **10s continuous walking**: traverses the entire Dock (speed 110 pt/s), reverses at screen edges without stopping
+  - **5s signature skill**: dribbling, sprint, SIU celebration, World Cup lift, shell retreat, etc.
+  - **10s restorative sleep**: rests with zzz / eyes closed
+  - Loop continuously repeats: 10s walk → 5s skill → 10s sleep → 10s walk...
+  - Click interaction provides instant audio/visual reaction, then resumes the cycle
+  - Cohesive frame slicing eliminates visual morphing between unrelated sprite poses
+- PetMovement: full Dock horizontal/vertical traversal, bounds edge turnaround, auto-orientation toward open space
 - PetAssetLoader: scans `Assets/Pets/`, decodes `manifest.json`, loads animation frame PNGs with fallback chain and active-pet-only caching (M6/M19)
 - Sprite interaction: click-through transparent regions via per-pixel alpha hit testing (M7)
 - User Customization & Menu Bar Controls (M13):
   - "Pet Size" submenu: 1× (64px), 2× (128px), 3× (192px)
-  - "Activity Level" submenu: Calm, Normal, Energetic
+  - "Activity Level" submenu: Calm (speed 82 pt/s), Normal (110 pt/s), Energetic (150 pt/s)
   - Dynamic window resizing, movement bounds recalculation, and Dock geometry adjustment
   - All settings persisted via `UserDefaults` across app launches
 - **Extreme Power & Memory Optimization** (M10/M19):
   - Dynamic display link throttling (5-10Hz when idle/sleeping, 60-120Hz during walking)
   - Active-pet cache eviction upon switching pets
-  - CPU usage: 0.2% - 0.5% during idle
-  - Memory: **22.1 MB physical footprint** (measured via `vmmap -summary`, within 10MB-30MB target budget)
+  - CPU usage: **0.1% - 0.2%**
+  - Memory: **13.0 MB physical footprint** (measured via `vmmap -summary`, well within the 10MB-30MB target budget)
 - Packaging & Distribution (M11 & M14):
   - High-resolution retro pixel-art macOS squircle `AppIcon.icns` generated via `scripts/generate_app_icon.py` and `iconutil`
   - Self-contained signed release `.app` bundle via `./scripts/build_app.sh --release`

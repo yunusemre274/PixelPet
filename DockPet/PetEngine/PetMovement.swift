@@ -3,10 +3,10 @@ import Foundation
 /// Computes pet position over time within given movement bounds.
 /// Pure domain logic — no AppKit dependency.
 ///
-/// The movement engine handles:
-/// - Horizontal movement at configurable speed
-/// - Direction changes at boundaries
-/// - Random direction selection on walk start
+/// Features:
+/// - Smooth traversal across the entire Dock width
+/// - Automatic turnaround at screen boundaries
+/// - Intelligent direction choice toward the larger open Dock area
 final class PetMovement {
 
     /// Current horizontal position (in points, relative to movement bounds).
@@ -15,8 +15,8 @@ final class PetMovement {
     /// Current movement direction.
     private(set) var direction: PetDirection = .right
 
-    /// Movement speed in points per second.
-    var speed: CGFloat = 30.0
+    /// Movement speed in points per second (default 110 pt/s for full Dock coverage).
+    var speed: CGFloat = 110.0
 
     /// Whether the pet is currently moving.
     var isMoving: Bool = false
@@ -33,10 +33,19 @@ final class PetMovement {
         positionX = x
     }
 
-    /// Starts movement in a random direction.
-    func startMoving() {
+    /// Sets the movement direction explicitly.
+    func setDirection(_ newDirection: PetDirection) {
+        direction = newDirection
+    }
+
+    /// Starts movement, orienting toward the larger open region of the Dock.
+    func startMoving(bounds: ClosedRange<CGFloat>? = nil) {
         isMoving = true
-        direction = Bool.random(using: &rng) ? .right : .left
+        if let bounds {
+            let mid = (bounds.lowerBound + bounds.upperBound) / 2.0
+            // Walk toward the center/other side of the Dock to maximize traversal
+            direction = (positionX >= mid) ? .left : .right
+        }
     }
 
     /// Stops movement.
@@ -57,7 +66,7 @@ final class PetMovement {
         let delta = speed * CGFloat(deltaTime) * (direction == .right ? 1 : -1)
         positionX += delta
 
-        // Boundary clamping and turnaround
+        // Boundary clamping and automatic turnaround
         if positionX <= bounds.lowerBound {
             positionX = bounds.lowerBound
             direction = .right

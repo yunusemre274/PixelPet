@@ -79,8 +79,8 @@ struct PetAssetLoaderTests {
         let messiFrames = loader.loadFrames(for: "LionelMessi", animation: "special")
         let turtleFrames = loader.loadFrames(for: "Turtle", animation: "special")
 
-        #expect(ronaldoFrames != nil && ronaldoFrames?.count == 12)
-        #expect(messiFrames != nil && messiFrames?.count == 16)
+        #expect(ronaldoFrames != nil && ronaldoFrames?.count == 20)
+        #expect(messiFrames != nil && messiFrames?.count == 24)
         #expect(turtleFrames != nil && turtleFrames?.count == 8)
     }
 

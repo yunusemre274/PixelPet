@@ -87,110 +87,80 @@ struct PetManifestTests {
 @Suite("PetStateMachine Tests")
 struct PetStateMachineTests {
 
-    @Test("Initial state is idle")
+    @Test("Initial state is walking")
     func initialState() {
-        let rng = SeededRNG(seed: 123)
-        let sm = PetStateMachine(rng: rng)
-        #expect(sm.state == .idle)
+        let sm = PetStateMachine()
+        #expect(sm.state == .walking)
+        #expect(sm.stateTimer == 10.0)
     }
 
-    @Test("Idle transitions to walking on timerExpired")
-    func idleToWalking() {
-        let rng = SeededRNG(seed: 123)
-        let sm = PetStateMachine(rng: rng)
-
-        var transitioned = false
-        sm.onStateChanged = { oldState, newState in
-            if oldState == .idle && newState == .walking {
-                transitioned = true
-            }
-        }
+    @Test("Walking transitions to specialAnimation on timerExpired after 10s")
+    func walkingToSkillOnTimer() {
+        let sm = PetStateMachine()
+        #expect(sm.state == .walking)
 
         sm.handleEvent(.timerExpired)
-
-        #expect(sm.state == .walking)
-        #expect(transitioned)
+        #expect(sm.state == .specialAnimation)
+        #expect(sm.stateTimer == 5.0)
     }
 
-    @Test("Walking transitions to idle on timerExpired")
-    func walkingToIdleOnTimer() {
-        let rng = SeededRNG(seed: 123)
-        let sm = PetStateMachine(rng: rng)
-
-        sm.handleEvent(.timerExpired) // idle -> walking
+    @Test("Walking continues without stopping on boundary hit")
+    func walkingContinuesOnBoundary() {
+        let sm = PetStateMachine()
         #expect(sm.state == .walking)
 
-        sm.handleEvent(.timerExpired) // walking -> idle
-        #expect(sm.state == .idle)
+        sm.handleEvent(.hitBoundary)
+        #expect(sm.state == .walking) // Stays in walking state!
     }
 
-    @Test("Walking transitions to idle on boundary hit")
-    func walkingToIdleOnBoundary() {
-        let rng = SeededRNG(seed: 123)
-        let sm = PetStateMachine(rng: rng)
+    @Test("SpecialAnimation transitions to sleeping on timerExpired after 5s")
+    func skillToSleeping() {
+        let sm = PetStateMachine(initialState: .specialAnimation)
+        #expect(sm.state == .specialAnimation)
 
-        sm.handleEvent(.timerExpired) // idle -> walking
+        sm.handleEvent(.timerExpired)
+        #expect(sm.state == .sleeping)
+        #expect(sm.stateTimer == 10.0)
+    }
+
+    @Test("Sleeping transitions to walking on timerExpired after 10s")
+    func sleepingToWalking() {
+        let sm = PetStateMachine(initialState: .sleeping)
+        #expect(sm.state == .sleeping)
+
+        sm.handleEvent(.timerExpired)
+        #expect(sm.state == .walking)
+        #expect(sm.stateTimer == 10.0)
+    }
+
+    @Test("Complete 10s walk -> 5s skill -> 10s sleep cycle repeats")
+    func fullCycleLoop() {
+        let sm = PetStateMachine()
         #expect(sm.state == .walking)
 
-        sm.handleEvent(.hitBoundary) // walking -> idle
-        #expect(sm.state == .idle)
+        // 10 seconds of walking
+        sm.update(deltaTime: 10.1)
+        #expect(sm.state == .specialAnimation)
+
+        // 5 seconds of skill
+        sm.update(deltaTime: 5.1)
+        #expect(sm.state == .sleeping)
+
+        // 10 seconds of sleep
+        sm.update(deltaTime: 10.1)
+        #expect(sm.state == .walking)
     }
 
-    @Test("Click transitions to interaction")
+    @Test("Click transitions to interaction and resumes cycle")
     func clickInteraction() {
-        let rng = SeededRNG(seed: 123)
-        let sm = PetStateMachine(rng: rng)
+        let sm = PetStateMachine()
+        #expect(sm.state == .walking)
 
         sm.handleEvent(.clicked)
         #expect(sm.state == .interaction)
 
         sm.handleEvent(.animationComplete)
-        #expect(sm.state == .idle)
-    }
-
-    @Test("Update advances state timer and triggers transition")
-    func updateTrigger() {
-        let rng = SeededRNG(seed: 123)
-        let smFixed = PetStateMachine(rng: rng)
-        smFixed.idleDurationRange = 1.0...1.0
-        smFixed.specialAnimationInterval = 100.0...100.0
-        smFixed.resetTimers()
-
-        // Advance by 1.5 seconds to ensure timer fires
-        smFixed.update(deltaTime: 1.5)
-        #expect(smFixed.state == .walking)
-    }
-
-    @Test("Special trigger transitions to specialAnimation and back to idle")
-    func specialAnimationTransition() {
-        let rng = SeededRNG(seed: 123)
-        let sm = PetStateMachine(rng: rng)
-
-        sm.handleEvent(.specialTrigger)
-        #expect(sm.state == .specialAnimation)
-
-        sm.handleEvent(.animationComplete)
-        #expect(sm.state == .idle)
-    }
-
-    @Test("2 minutes of active time triggers 30s sleep")
-    func sleepAfterTwoMinutesActive() {
-        let rng = SeededRNG(seed: 123)
-        let sm = PetStateMachine(rng: rng)
-        sm.sleepAfterActiveTime = 120.0
-        sm.specialAnimationInterval = 1000.0...1000.0 // avoid special triggering during test
-        sm.resetTimers()
-
-        // Simulate 125 seconds of active time in 1-second steps
-        for _ in 0..<125 {
-            sm.update(deltaTime: 1.0)
-            if sm.state == .sleeping {
-                break
-            }
-        }
-
-        #expect(sm.state == .sleeping)
-        #expect(sm.sleepDuration == 30.0)
+        #expect(sm.state == .walking)
     }
 }
 
@@ -319,17 +289,16 @@ struct PetCustomizationTests {
         let coordinator = PetCoordinator(panel: panel, spriteView: view, assetLoader: loader)
         coordinator.loadPet(named: "Cat")
 
+        let baseSpeed = CGFloat(coordinator.manifest?.movement?.walkSpeed ?? 110.0)
+
         coordinator.setActivityLevel(.calm)
-        #expect(coordinator.stateMachine.idleDurationRange == 4.0...10.0)
-        #expect(coordinator.stateMachine.walkDurationRange == 2.0...5.0)
+        #expect(coordinator.movement.speed == baseSpeed * 0.75)
 
         coordinator.setActivityLevel(.energetic)
-        #expect(coordinator.stateMachine.idleDurationRange == 1.0...3.0)
-        #expect(coordinator.stateMachine.walkDurationRange == 4.0...10.0)
+        #expect(coordinator.movement.speed == baseSpeed * 1.35)
 
         coordinator.setActivityLevel(.normal)
-        #expect(coordinator.stateMachine.idleDurationRange == 2.0...6.0)
-        #expect(coordinator.stateMachine.walkDurationRange == 3.0...8.0)
+        #expect(coordinator.movement.speed == baseSpeed)
     }
 
     @Test("Sound setting toggle can be enabled and disabled")

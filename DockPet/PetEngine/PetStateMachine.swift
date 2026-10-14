@@ -3,11 +3,11 @@ import Foundation
 /// Represents the current behavioral state of the pet.
 /// See docs/PET_BEHAVIOR.md for the full state machine specification.
 enum PetState: String, CaseIterable {
-    case idle
     case walking
+    case specialAnimation // 5s skill (dribbling, SIU, World Cup lift, shell retreat, etc.)
     case sleeping
     case interaction
-    case specialAnimation
+    case idle
 }
 
 /// Events that can trigger state transitions.
@@ -16,7 +16,6 @@ enum PetEvent {
     case clicked
     case animationComplete
     case hitBoundary
-    case specialTrigger
 }
 
 /// Direction the pet is facing/moving.
@@ -25,115 +24,72 @@ enum PetDirection {
     case right
 }
 
-/// Pure state machine for pet behavior. No AppKit dependency.
+/// State machine implementing the requested continuous behavior cycle:
 ///
-/// Manages state transitions and timing. The state machine is fully
-/// deterministic when given a fixed random seed, making it unit-testable.
+/// **Cycle:**
+/// 1. 10 seconds continuous walking (`walking`) — traverses the Dock, reverses at edges without stopping
+/// 2. 5 seconds signature skill (`specialAnimation`) — dribbling, SIU, World Cup, shell retreat, etc.
+/// 3. 10 seconds sleep (`sleeping`) — rests peacefully
+/// 4. Repeat cycle: 10s walk → 5s skill → 10s sleep → 10s walk...
 ///
-/// Transition graph:
-/// ```
-/// idle → walking (timer)
-/// walking → idle (timer or boundary)
-/// idle → interaction (clicked)
-/// walking → interaction (clicked)
-/// interaction → idle (animation complete)
-/// idle → sleeping (2min cumulative active time)
-/// sleeping → idle (timer 30s or clicked)
-/// idle → specialAnimation (15-30s periodic trigger)
-/// walking → specialAnimation (15-30s periodic trigger)
-/// specialAnimation → idle (animation complete)
-/// ```
+/// Click interaction temporarily triggers a reaction, then resumes the cycle.
 final class PetStateMachine {
 
     /// Current pet state.
-    private(set) var state: PetState = .idle
+    private(set) var state: PetState = .walking
 
     /// Callback fired on every state change: (oldState, newState).
     var onStateChanged: ((PetState, PetState) -> Void)?
 
     /// Time remaining in the current state before auto-transition.
-    private var stateTimer: TimeInterval = 0
+    private(set) var stateTimer: TimeInterval = 10.0
 
-    /// Cumulative time the pet has been active (idle + walking) since last sleep.
-    /// Resets after sleeping.
-    private var activeTime: TimeInterval = 0
+    /// State that was active before an interaction interrupt.
+    private var interruptedState: PetState = .walking
 
-    /// Time until next special animation trigger.
-    private var specialAnimationTimer: TimeInterval = 0
+    // MARK: - Exact Durations (As Requested)
 
-    /// Random number generator (injectable for testing).
-    private var rng: any RandomNumberGenerator
+    /// 10 seconds continuous walk.
+    var walkDuration: TimeInterval = 10.0
 
-    // MARK: - Configuration
+    /// 5 seconds signature skill animation.
+    var skillDuration: TimeInterval = 5.0
 
-    /// Idle duration range in seconds before transitioning to walk.
-    var idleDurationRange: ClosedRange<TimeInterval> = 2.0...6.0
+    /// 10 seconds sleep.
+    var sleepDuration: TimeInterval = 10.0
 
-    /// Walk duration range in seconds before transitioning back to idle.
-    var walkDurationRange: ClosedRange<TimeInterval> = 3.0...8.0
-
-    /// Interaction animation duration in seconds.
-    var interactionDuration: TimeInterval = 0.8
-
-    /// Sleep duration in seconds (fixed 30s as per requirement).
-    var sleepDuration: TimeInterval = 30.0
-
-    /// How long the pet must be active (cumulative idle+walking) before it sleeps.
-    /// Default: 120 seconds (2 minutes).
-    var sleepAfterActiveTime: TimeInterval = 120.0
-
-    /// Special animation duration in seconds.
-    var specialAnimationDuration: TimeInterval = 2.5
-
-    /// Range for periodic special animation trigger (15-30 seconds).
-    var specialAnimationInterval: ClosedRange<TimeInterval> = 15.0...30.0
+    /// Duration of click interaction reaction.
+    var interactionDuration: TimeInterval = 1.0
 
     // MARK: - Init
 
-    init(rng: any RandomNumberGenerator = SystemRandomNumberGenerator()) {
-        self.rng = rng
-        self.stateTimer = randomDuration(from: idleDurationRange)
-        self.specialAnimationTimer = randomDuration(from: specialAnimationInterval)
+    init(initialState: PetState = .walking) {
+        self.state = initialState
+        switch initialState {
+        case .walking: self.stateTimer = walkDuration
+        case .specialAnimation: self.stateTimer = skillDuration
+        case .sleeping: self.stateTimer = sleepDuration
+        case .interaction: self.stateTimer = interactionDuration
+        case .idle: self.stateTimer = 1.0
+        }
     }
 
-    /// Resets internal timers according to current configuration ranges.
+    /// Resets internal timers to match configured values.
     func resetTimers() {
-        self.stateTimer = randomDuration(from: idleDurationRange)
-        self.specialAnimationTimer = randomDuration(from: specialAnimationInterval)
-        self.activeTime = 0
+        switch state {
+        case .walking: stateTimer = walkDuration
+        case .specialAnimation: stateTimer = skillDuration
+        case .sleeping: stateTimer = sleepDuration
+        case .interaction: stateTimer = interactionDuration
+        case .idle: stateTimer = 1.0
+        }
     }
 
     // MARK: - Update
 
-    /// Advances the state machine by `deltaTime` seconds.
-    /// May trigger state transitions if timers expire.
+    /// Advances the state timer by `deltaTime`. Transitions when expired.
     func update(deltaTime: TimeInterval) {
         stateTimer -= deltaTime
-
-        // Track active time (idle + walking count as "active")
-        if state == .idle || state == .walking {
-            activeTime += deltaTime
-
-            // Decrement special animation timer only during active states
-            specialAnimationTimer -= deltaTime
-
-            // Check if it's time for a special animation
-            if specialAnimationTimer <= 0 {
-                specialAnimationTimer = randomDuration(from: specialAnimationInterval)
-                handleEvent(.specialTrigger)
-                return
-            }
-        }
-
-        // Check if pet should sleep after 2 minutes of activity
-        if (state == .idle || state == .walking) && activeTime >= sleepAfterActiveTime {
-            let oldState = state
-            transition(to: .sleeping)
-            if state != oldState {
-                onStateChanged?(oldState, state)
-            }
-            return
-        }
 
         if stateTimer <= 0 {
             handleEvent(.timerExpired)
@@ -147,26 +103,34 @@ final class PetStateMachine {
         let oldState = state
 
         switch (state, event) {
+        case (.walking, .timerExpired):
+            // 10s walk finished → 5s skill
+            transition(to: .specialAnimation)
+
+        case (.walking, .hitBoundary):
+            // Reaching the Dock boundary does NOT stop the walk; the pet simply turns around
+            break
+
+        case (.specialAnimation, .timerExpired), (.specialAnimation, .animationComplete):
+            // 5s skill finished → 10s sleep
+            transition(to: .sleeping)
+
+        case (.sleeping, .timerExpired):
+            // 10s sleep finished → 10s walk (cycle repeats)
+            transition(to: .walking)
+
         case (.idle, .timerExpired):
             transition(to: .walking)
 
-        case (.walking, .timerExpired), (.walking, .hitBoundary):
-            transition(to: .idle)
-
-        case (.idle, .clicked), (.walking, .clicked):
+        case (.walking, .clicked), (.specialAnimation, .clicked), (.sleeping, .clicked), (.idle, .clicked):
+            // Click interrupt: save current state and show reaction
+            interruptedState = state
             transition(to: .interaction)
 
         case (.interaction, .timerExpired), (.interaction, .animationComplete):
-            transition(to: .idle)
-
-        case (.sleeping, .timerExpired), (.sleeping, .clicked):
-            transition(to: .idle)
-
-        case (.idle, .specialTrigger), (.walking, .specialTrigger):
-            transition(to: .specialAnimation)
-
-        case (.specialAnimation, .timerExpired), (.specialAnimation, .animationComplete):
-            transition(to: .idle)
+            // Return to interrupted state or continue walking
+            let resumeState = (interruptedState == .interaction) ? .walking : interruptedState
+            transition(to: resumeState)
 
         default:
             break
@@ -177,27 +141,22 @@ final class PetStateMachine {
         }
     }
 
-    // MARK: - Private
+    // MARK: - Transition
 
     private func transition(to newState: PetState) {
         state = newState
 
         switch newState {
-        case .idle:
-            stateTimer = randomDuration(from: idleDurationRange)
         case .walking:
-            stateTimer = randomDuration(from: walkDurationRange)
+            stateTimer = walkDuration
+        case .specialAnimation:
+            stateTimer = skillDuration
         case .sleeping:
             stateTimer = sleepDuration
-            activeTime = 0  // Reset active time after sleeping
         case .interaction:
             stateTimer = interactionDuration
-        case .specialAnimation:
-            stateTimer = specialAnimationDuration
+        case .idle:
+            stateTimer = 1.0
         }
-    }
-
-    private func randomDuration(from range: ClosedRange<TimeInterval>) -> TimeInterval {
-        TimeInterval.random(in: range, using: &rng)
     }
 }

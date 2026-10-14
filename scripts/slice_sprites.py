@@ -2,125 +2,30 @@
 """
 Advanced Sprite Sheet Slicer & 64x64 Pixel-Art Renderer for DockPet
 ===================================================================
-Slices 256×256 sprite sheets (8×8 grid of 32×32 frames) from Assets/NewPetDesign/
-and renders them as pixel-perfect 64×64 frames (2× nearest-neighbor scaling)
-with exact state-to-animation mapping for all 9 pet types.
-
-Supported Pets & Signature Special Animations:
-  - Lionel Messi: Goal celebration slide + World Cup trophy lift (16 frames)
-  - Cristiano Ronaldo: SIU celebration spin/land + Champions League trophy lift (12 frames)
-  - Turtle: Retreating into protective shell and peeking out (8 frames)
-  - Cat: Batting and playing with fish toy (8 frames)
-  - Dog: Dancing on hind legs with joyful hearts (8 frames)
-  - Hamster: Eating sunflower seeds and stuffing cheek pouches (8 frames)
-  - Dinosaur: Stomping and breathing fire roar (8 frames)
-  - Parrot: Flapping wings and singing musical notes (8 frames)
-  - Rabbit: Happily munching on a fresh carrot (8 frames)
+Produces uniform, cohesive, non-morphing 64×64 pixel-art animation frames
+for all 9 pet types:
+  - Lionel Messi: Running walk, skill (Dribble + Goal slide + World Cup lift), Sleep
+  - Cristiano Ronaldo: Running walk, skill (Dribble + SIU celebration + Champions Cup), Sleep
+  - Turtle: 4-leg walk, skill (Retreat into shell), Sleep with zzz
+  - Dog: 4-leg walk, skill (Dancing on hind legs with hearts), Sleep curled up
+  - Cat: Walk cycle, skill (Playing with fish toy & box), Sleep curled up with z
+  - Hamster: Running walk, skill (Eating sunflower seeds & cheek pouch), Sleep with zzz
+  - Dinosaur: Stomping walk, skill (Roaring fire stomp), Sleep with zzz
+  - Parrot: 2-leg walk, skill (Flying & flapping wings), Sleep with zzz
+  - Rabbit: Hopping walk, skill (Eating crunchy carrot), Sleep with zzz
 """
 
 import json
 import os
 import sys
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 SPRITE_SHEET_DIR = Path("Assets/NewPetDesign")
 OUTPUT_DIR = Path("Assets/Pets")
-CELL_SRC_SIZE = 32
-TARGET_SIZE = 64  # Upscaled 2x nearest-neighbor for 64x64 pixel art
-
-# Precise row & cell coordinate mappings for each pet
-# Format: { anim_name: [ (row, col), ... ] }
-PET_ANIMATION_MAPS = {
-    "LionelMessi": {
-        "idle": [(0, c) for c in range(8)],
-        "walk": [(2, c) for c in range(8)],
-        "interaction": [(3, c) for c in range(8)],
-        # Special: Goal celebration (Row 6) + World Cup kiss & lift (Row 5)
-        "special": [(6, c) for c in range(8)] + [(5, c) for c in range(8)],
-        "sleep": [(0, 0), (0, 1), (0, 2), (0, 3)],  # Will apply sleeping effect if needed
-    },
-    "CristianoRonaldo": {
-        "idle": [(0, c) for c in range(8)],
-        "walk": [(1, c) for c in range(8)],
-        "interaction": [(5, c) for c in range(8)],
-        # Special: SIU jump & land (Row 6) + Champions Trophy lift (Row 4, cols 0-3)
-        "special": [(6, c) for c in range(8)] + [(4, c) for c in range(4)],
-        "sleep": [(0, 0), (0, 1), (0, 2), (0, 3)],
-    },
-    "Turtle": {
-        "idle": [(1, c) for c in range(4)],
-        "walk": [(0, c) for c in range(8)],
-        "sleep": [(3, c) for c in range(8)],
-        "interaction": [(7, c) for c in range(8)],
-        # Special: Retreating into shell and peeking out (Row 2)
-        "special": [(2, c) for c in range(8)],
-    },
-    "Dog": {
-        "idle": [(2, c) for c in range(4)],
-        "walk": [(0, c) for c in range(4)],
-        "sleep": [(0, c) for c in range(4, 8)],
-        "interaction": [(6, c) for c in range(4, 8)],
-        # Special: Back legs dancing and jumping with hearts (Row 6, all 8)
-        "special": [(6, c) for c in range(8)],
-    },
-    "Cat": {
-        "idle": [(0, c) for c in range(4)],
-        "walk": [(3, c) for c in range(4)],
-        "sleep": [(5, c) for c in range(4, 8)],
-        "interaction": [(5, c) for c in range(4)],  # Cardboard box popup
-        # Special: Playing with fish skeleton (Row 7)
-        "special": [(7, c) for c in range(8)],
-    },
-    "Hamster": {
-        "idle": [(0, c) for c in range(4)],
-        "walk": [(2, c) for c in range(8)],
-        "sleep": [(1, c) for c in range(8)],
-        "interaction": [(3, c) for c in range(8)],
-        # Special: Eating sunflower seeds & stuffing cheek pouches (Row 4)
-        "special": [(4, c) for c in range(8)],
-    },
-    "Dinosaur": {
-        "idle": [(0, c) for c in range(8)],
-        "walk": [(2, c) for c in range(8)],
-        "sleep": [(1, c) for c in range(8)],
-        "interaction": [(3, c) for c in range(8)],
-        # Special: Stomping and fire roar (Row 4)
-        "special": [(4, c) for c in range(8)],
-    },
-    "Parrot": {
-        "idle": [(0, c) for c in range(8)],
-        "walk": [(2, c) for c in range(8)],
-        "sleep": [(1, c) for c in range(8)],
-        "interaction": [(3, c) for c in range(8)],
-        # Special: Flapping wings and flying (Row 5)
-        "special": [(5, c) for c in range(8)],
-    },
-    "Rabbit": {
-        "idle": [(0, c) for c in range(8)],
-        "walk": [(2, c) for c in range(8)],
-        "sleep": [(1, c) for c in range(8)],
-        "interaction": [(3, c) for c in range(8)],
-        # Special: Eating carrot (Row 4)
-        "special": [(4, c) for c in range(8)],
-    },
-}
-
-FILENAME_MAP = {
-    "Cat": "Cat.png",
-    "CristianoRonaldo": "CristianoRonaldo.png",
-    "Dinosaur": "Dinasour.png",
-    "Dog": "Dog.png",
-    "Hamster": "Hamster.png",
-    "LionelMessi": "LionelMessi.png",
-    "Parrot": "Parrot.png",
-    "Rabbit": "Rabbit.png",
-    "Turtle": "Turtle.png",
-}
+TARGET_SIZE = 64
 
 def create_manifest(pet_name: str, anim_counts: dict) -> dict:
-    # Set FPS appropriately depending on frame count
-    special_fps = 6.0 if anim_counts.get("special", 8) <= 8 else 8.0
     return {
         "name": pet_name,
         "version": 2,
@@ -132,26 +37,24 @@ def create_manifest(pet_name: str, anim_counts: dict) -> dict:
             "walk": {"fps": 8.0, "loop": True},
             "sleep": {"fps": 2.0, "loop": True},
             "interaction": {"fps": 6.0, "loop": False},
-            "special": {"fps": special_fps, "loop": False},
+            "special": {"fps": 6.0, "loop": True},
         },
         "movement": {
-            "walkSpeed": 30.0,
-            "runSpeed": 60.0,
+            "walkSpeed": 110.0,
+            "runSpeed": 160.0,
         },
     }
 
-def process_pet(pet_name: str, filename: str) -> bool:
+def save_scaled_frame(img_cell: Image.Image, output_path: Path):
+    """Upscales 32x32 cell to 64x64 using nearest neighbor, ensuring RGBA mode."""
+    if img_cell.mode != "RGBA":
+        img_cell = img_cell.convert("RGBA")
+    scaled = img_cell.resize((TARGET_SIZE, TARGET_SIZE), Image.NEAREST)
+    scaled.save(output_path, "PNG", optimize=True)
+
+def process_standard_pet(pet_name: str, filename: str, mapping: dict):
     sheet_path = SPRITE_SHEET_DIR / filename
-    if not sheet_path.exists():
-        print(f"ERROR: {sheet_path} not found")
-        return False
-
     img = Image.open(sheet_path).convert("RGBA")
-    mapping = PET_ANIMATION_MAPS.get(pet_name)
-    if not mapping:
-        print(f"ERROR: No animation map for {pet_name}")
-        return False
-
     pet_dir = OUTPUT_DIR / pet_name
     pet_dir.mkdir(parents=True, exist_ok=True)
 
@@ -159,57 +62,232 @@ def process_pet(pet_name: str, filename: str) -> bool:
 
     for anim_name, coords in mapping.items():
         anim_dir = pet_dir / anim_name
-        # Remove any existing frames in the directory
-        if anim_dir.exists():
-            for old_file in anim_dir.glob("*.png"):
-                old_file.unlink()
         anim_dir.mkdir(parents=True, exist_ok=True)
+        for old in anim_dir.glob("*.png"):
+            old.unlink()
 
         anim_counts[anim_name] = len(coords)
 
         for idx, (row, col) in enumerate(coords):
-            x1 = col * CELL_SRC_SIZE
-            y1 = row * CELL_SRC_SIZE
-            x2 = x1 + CELL_SRC_SIZE
-            y2 = y1 + CELL_SRC_SIZE
+            x1 = col * 32
+            y1 = row * 32
+            cell = img.crop((x1, y1, x1 + 32, y1 + 32))
 
-            cell = img.crop((x1, y1, x2, y2))
-
-            # If sleep animation for pets without dedicated sleep row (Messi, Ronaldo),
-            # darken slightly to simulate sleep
             if anim_name == "sleep" and pet_name in ("LionelMessi", "CristianoRonaldo"):
-                r, g, b, a = cell.split()
-                from PIL import ImageEnhance
-                darkened = ImageEnhance.Brightness(cell).enhance(0.7)
+                enhancer = ImageEnhance.Brightness(cell)
+                darkened = enhancer.enhance(0.7)
+                _, _, _, a = cell.split()
                 dr, dg, db, _ = darkened.split()
                 cell = Image.merge("RGBA", (dr, dg, db, a))
 
-            # Upscale 2x using NEAREST neighbor for 100% crisp 64x64 pixel art
-            scaled = cell.resize((TARGET_SIZE, TARGET_SIZE), Image.NEAREST)
+            save_scaled_frame(cell, anim_dir / f"frame_{idx:02d}.png")
 
-            frame_path = anim_dir / f"frame_{idx:02d}.png"
-            scaled.save(frame_path, "PNG", optimize=True)
-
-    # Write manifest.json
     manifest = create_manifest(pet_name, anim_counts)
     with open(pet_dir / "manifest.json", "w") as f:
         json.dump(manifest, f, indent=2)
 
     counts_str = ", ".join(f"{k}: {v}f" for k, v in anim_counts.items())
     print(f"  ✓ {pet_name}: {counts_str}")
-    return True
+
+def process_dog():
+    pet_name = "Dog"
+    sheet_path = SPRITE_SHEET_DIR / "Dog.png"
+    img = Image.open(sheet_path).convert("RGBA")
+    pet_dir = OUTPUT_DIR / pet_name
+    pet_dir.mkdir(parents=True, exist_ok=True)
+
+    # Walk: 4 frames at y=19..45, x=0..128
+    walk_dir = pet_dir / "walk"
+    walk_dir.mkdir(parents=True, exist_ok=True)
+    for old in walk_dir.glob("*.png"): old.unlink()
+    for c in range(4):
+        cell = img.crop((c * 32, 19, (c + 1) * 32, 45))
+        frame = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        frame.paste(cell, (0, 6))
+        save_scaled_frame(frame, walk_dir / f"frame_{c:02d}.png")
+
+    # Idle: 2 frames from walk
+    idle_dir = pet_dir / "idle"
+    idle_dir.mkdir(parents=True, exist_ok=True)
+    for old in idle_dir.glob("*.png"): old.unlink()
+    for c in range(4):
+        src_c = c % 2
+        cell = img.crop((src_c * 32, 19, (src_c + 1) * 32, 45))
+        frame = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        frame.paste(cell, (0, 6))
+        save_scaled_frame(frame, idle_dir / f"frame_{c:02d}.png")
+
+    # Sleep: 4 frames at y=19..45, x=128..256
+    sleep_dir = pet_dir / "sleep"
+    sleep_dir.mkdir(parents=True, exist_ok=True)
+    for old in sleep_dir.glob("*.png"): old.unlink()
+    for c in range(4):
+        cell = img.crop((128 + c * 32, 19, 128 + (c + 1) * 32, 45))
+        frame = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        frame.paste(cell, (0, 6))
+        save_scaled_frame(frame, sleep_dir / f"frame_{c:02d}.png")
+
+    # Special (Skill): 8 frames at y=198..242
+    special_dir = pet_dir / "special"
+    special_dir.mkdir(parents=True, exist_ok=True)
+    for old in special_dir.glob("*.png"): old.unlink()
+    for c in range(8):
+        cell = img.crop((c * 32, 198, (c + 1) * 32, 242)) # 32x44
+        frame = Image.new("RGBA", (44, 44), (0, 0, 0, 0))
+        frame.paste(cell, (6, 0))
+        scaled = frame.resize((TARGET_SIZE, TARGET_SIZE), Image.NEAREST)
+        scaled.save(special_dir / f"frame_{c:02d}.png", "PNG", optimize=True)
+
+    # Interaction
+    inter_dir = pet_dir / "interaction"
+    inter_dir.mkdir(parents=True, exist_ok=True)
+    for old in inter_dir.glob("*.png"): old.unlink()
+    for c in range(4):
+        cell = img.crop(((4 + c) * 32, 198, (5 + c) * 32, 242))
+        frame = Image.new("RGBA", (44, 44), (0, 0, 0, 0))
+        frame.paste(cell, (6, 0))
+        scaled = frame.resize((TARGET_SIZE, TARGET_SIZE), Image.NEAREST)
+        scaled.save(inter_dir / f"frame_{c:02d}.png", "PNG", optimize=True)
+
+    manifest = create_manifest(pet_name, {"idle": 4, "walk": 4, "sleep": 4, "interaction": 4, "special": 8})
+    with open(pet_dir / "manifest.json", "w") as f:
+        json.dump(manifest, f, indent=2)
+    print("  ✓ Dog: idle: 4f, walk: 4f, sleep: 4f, interaction: 4f, special: 8f")
+
+def process_cat():
+    pet_name = "Cat"
+    sheet_path = SPRITE_SHEET_DIR / "Cat.png"
+    img = Image.open(sheet_path).convert("RGBA")
+    pet_dir = OUTPUT_DIR / pet_name
+    pet_dir.mkdir(parents=True, exist_ok=True)
+
+    # Walk: use consistent walking cat frames (Row 3 col 0, col 4, col 6, col 7)
+    walk_coords = [(3, 0), (3, 4), (3, 6), (3, 7)]
+    walk_dir = pet_dir / "walk"
+    walk_dir.mkdir(parents=True, exist_ok=True)
+    for old in walk_dir.glob("*.png"): old.unlink()
+    for idx, (r, c) in enumerate(walk_coords):
+        cell = img.crop((c * 32, r * 32, (c + 1) * 32, (r + 1) * 32))
+        save_scaled_frame(cell, walk_dir / f"frame_{idx:02d}.png")
+
+    # Idle: gentle sitting & blinking (Row 0 col 0, col 2, col 0, col 1)
+    idle_coords = [(0, 0), (0, 2), (0, 0), (0, 1)]
+    idle_dir = pet_dir / "idle"
+    idle_dir.mkdir(parents=True, exist_ok=True)
+    for old in idle_dir.glob("*.png"): old.unlink()
+    for idx, (r, c) in enumerate(idle_coords):
+        cell = img.crop((c * 32, r * 32, (c + 1) * 32, (r + 1) * 32))
+        save_scaled_frame(cell, idle_dir / f"frame_{idx:02d}.png")
+
+    # Sleep: curled up sleeping cat with z (Row 5 col 4, Row 7 col 4)
+    sleep_coords = [(5, 4), (7, 4), (5, 4), (7, 4)]
+    sleep_dir = pet_dir / "sleep"
+    sleep_dir.mkdir(parents=True, exist_ok=True)
+    for old in sleep_dir.glob("*.png"): old.unlink()
+    for idx, (r, c) in enumerate(sleep_coords):
+        cell = img.crop((c * 32, r * 32, (c + 1) * 32, (r + 1) * 32))
+        save_scaled_frame(cell, sleep_dir / f"frame_{idx:02d}.png")
+
+    # Special (Skill): cardboard box popup + playing with fish toy
+    special_coords = [(5, 2), (5, 2), (7, 2), (7, 3), (7, 2), (7, 3), (5, 2), (0, 1)]
+    special_dir = pet_dir / "special"
+    special_dir.mkdir(parents=True, exist_ok=True)
+    for old in special_dir.glob("*.png"): old.unlink()
+    for idx, (r, c) in enumerate(special_coords):
+        cell = img.crop((c * 32, r * 32, (c + 1) * 32, (r + 1) * 32))
+        save_scaled_frame(cell, special_dir / f"frame_{idx:02d}.png")
+
+    # Interaction
+    inter_coords = [(0, 1), (0, 2), (5, 2), (0, 0)]
+    inter_dir = pet_dir / "interaction"
+    inter_dir.mkdir(parents=True, exist_ok=True)
+    for old in inter_dir.glob("*.png"): old.unlink()
+    for idx, (r, c) in enumerate(inter_coords):
+        cell = img.crop((c * 32, r * 32, (c + 1) * 32, (r + 1) * 32))
+        save_scaled_frame(cell, inter_dir / f"frame_{idx:02d}.png")
+
+    manifest = create_manifest(pet_name, {"idle": 4, "walk": 4, "sleep": 4, "interaction": 4, "special": 8})
+    with open(pet_dir / "manifest.json", "w") as f:
+        json.dump(manifest, f, indent=2)
+    print("  ✓ Cat: idle: 4f, walk: 4f, sleep: 4f, interaction: 4f, special: 8f")
 
 def main():
     print("=" * 60)
-    print("DockPet Slicer & 64x64 Pixel Art Renderer")
+    print("DockPet Unified Slicer & Cohesive Pixel Art Pipeline")
     print("=" * 60)
 
-    success = 0
-    for pet_name, filename in FILENAME_MAP.items():
-        if process_pet(pet_name, filename):
-            success += 1
+    # 1. Cristiano Ronaldo: 8 frames walk, 4 frames sleep, 16 frames skill (dribble + SIU + trophy)
+    process_standard_pet("CristianoRonaldo", "CristianoRonaldo.png", {
+        "idle": [(0, c) for c in range(8)],
+        "walk": [(1, c) for c in range(8)],
+        "sleep": [(0, 0), (0, 2), (0, 0), (0, 2)],
+        "interaction": [(5, c) for c in range(8)],
+        # Skill: Dribble (Row 3, 8f) + SIU celebration (Row 6, 8f) + Trophy (Row 4, 4f)
+        "special": [(3, c) for c in range(8)] + [(6, c) for c in range(8)] + [(4, c) for c in range(4)],
+    })
 
-    print(f"\nCompleted: {success}/{len(FILENAME_MAP)} pets processed successfully into 64x64 pixel art.")
+    # 2. Lionel Messi: 8 frames walk, 4 frames sleep, 20 frames skill (dribble + goal slide + World Cup lift)
+    process_standard_pet("LionelMessi", "LionelMessi.png", {
+        "idle": [(0, c) for c in range(8)],
+        "walk": [(2, c) for c in range(8)],
+        "sleep": [(0, 0), (0, 2), (0, 0), (0, 2)],
+        "interaction": [(3, c) for c in range(8)],
+        # Skill: Dribble (Row 4, 8f) + Goal slide (Row 6, 8f) + World Cup (Row 5, 8f)
+        "special": [(4, c) for c in range(8)] + [(6, c) for c in range(8)] + [(5, c) for c in range(8)],
+    })
+
+    # 3. Turtle: 8 frames walk on 4 legs, 8 frames sleep with zzz, 8 frames skill (shell retreat)
+    process_standard_pet("Turtle", "Turtle.png", {
+        "idle": [(1, c) for c in range(4)],
+        "walk": [(0, c) for c in range(8)],
+        "sleep": [(3, c) for c in range(8)],
+        "interaction": [(7, c) for c in range(8)],
+        "special": [(2, c) for c in range(8)], # Retract into shell
+    })
+
+    # 4. Dinosaur: 8 frames stomping walk, 8 frames sleep, 8 frames skill (fire roar)
+    process_standard_pet("Dinosaur", "Dinasour.png", {
+        "idle": [(0, c) for c in range(8)],
+        "walk": [(2, c) for c in range(8)],
+        "sleep": [(1, c) for c in range(8)],
+        "interaction": [(3, c) for c in range(8)],
+        "special": [(4, c) for c in range(8)],
+    })
+
+    # 5. Hamster: 8 frames running walk, 8 frames sleep, 8 frames skill (chewing seeds)
+    process_standard_pet("Hamster", "Hamster.png", {
+        "idle": [(0, c) for c in range(4)],
+        "walk": [(2, c) for c in range(8)],
+        "sleep": [(1, c) for c in range(8)],
+        "interaction": [(3, c) for c in range(8)],
+        "special": [(4, c) for c in range(8)],
+    })
+
+    # 6. Parrot: 8 frames walking, 8 frames sleep, 8 frames skill (flying & flapping)
+    process_standard_pet("Parrot", "Parrot.png", {
+        "idle": [(0, c) for c in range(8)],
+        "walk": [(2, c) for c in range(8)],
+        "sleep": [(1, c) for c in range(8)],
+        "interaction": [(3, c) for c in range(8)],
+        "special": [(5, c) for c in range(8)],
+    })
+
+    # 7. Rabbit: 8 frames hopping walk, 8 frames sleep, 8 frames skill (eating carrot)
+    process_standard_pet("Rabbit", "Rabbit.png", {
+        "idle": [(0, c) for c in range(8)],
+        "walk": [(2, c) for c in range(8)],
+        "sleep": [(1, c) for c in range(8)],
+        "interaction": [(3, c) for c in range(8)],
+        "special": [(4, c) for c in range(8)],
+    })
+
+    # 8. Dog: Clean crop walk, sleep, and heart dancing skill
+    process_dog()
+
+    # 9. Cat: Clean ginger cat walk, sleep with z, and box/fish skill
+    process_cat()
+
+    print("\nAll 9 pets successfully processed with cohesive, non-morphing animations.")
 
 if __name__ == "__main__":
     main()

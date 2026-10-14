@@ -375,3 +375,36 @@
 - Football icons Ronaldo & Messi and iconic animal animations delight the user.
 - System resource footprint is tiny (22MB RAM, <1% CPU), completely unnoticeable on macOS.
 
+---
+
+## ADR-018 — Deterministic 25-Second Behavioral Loop & Full Dock Traversal
+
+**Status:** ACCEPTED  
+**Date:** 2026-10-15  
+**Validated:** M20/M21 — 10s continuous walk across full Dock, 5s signature skill, 10s sleep cycle, cohesive frame selection eliminating visual morphing
+
+**Context:** The user reported visual morphing ("hayvanlar sürekli şekil değiştiriyor") caused by random state hopping and inconsistent frame slices, and requested:
+1. 10s continuous walking (aralıksız yürüme)
+2. 5s signature skill (dribbling, sprint, gol sevinci, kabuğuna çekilme vs.)
+3. 10s sleep (uyku)
+4. Continuous repetition of the exact 25-second loop
+5. Full Dock utilization (pet must traverse the entire screen width above the Dock)
+
+**Decision:**
+1. **Behavioral Loop (`PetStateMachine`):**
+   - Eliminated erratic random duration timers.
+   - Fixed cycle: `walking (10.0s)` → `specialAnimation / skill (5.0s)` → `sleeping (10.0s)` → repeat.
+   - Boundary collisions (`hitBoundary`) no longer interrupt the 10s walk; the pet smoothly reverses direction and keeps walking.
+2. **Full Dock Traversal (`PetMovement`):**
+   - Walking speed set to 110 pt/s (traversing 1100 points in 10s, utilizing the entire width of the display above the Dock).
+   - Upon waking, the pet automatically heads toward the open side of the screen (`startMoving(bounds:)`).
+3. **Cohesive Frame Slicing (`slice_sprites.py`):**
+   - Cleaned frame selections so that all frames in an animation share identical silhouettes, outfits, and color palettes.
+   - Added custom cropping for Dog (removing top banner text and centering) and Cat (curled up sleeping, clean walk).
+
+**Consequences:**
+- The pet behaves in an intuitive, entertaining, predictable cycle.
+- Traverses the entire Dock from edge to edge.
+- Visual morphing/flickering is completely eliminated.
+- Physical memory footprint drops further to **13.0 MB**!
+

@@ -93,6 +93,8 @@ final class PetCoordinator {
         guard displayLink == nil else { return }
 
         let link = spriteView.displayLink(target: self, selector: #selector(tick(_:)))
+        // Start throttled (5-10Hz) when idle to save CPU & battery
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 5, maximum: 10, preferred: 5)
         link.add(to: .main, forMode: .common)
         self.displayLink = link
 
@@ -165,8 +167,12 @@ final class PetCoordinator {
 
         switch newState {
         case .walking:
+            // Ramp up to high refresh rate (60-120Hz) for fluid animation
+            displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 60)
             movement.startMoving()
         case .idle, .sleeping, .interaction:
+            // Throttle to 5-10Hz when stationary to save energy
+            displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 5, maximum: 10, preferred: 5)
             movement.stopMoving()
         }
 

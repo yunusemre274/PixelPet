@@ -281,7 +281,7 @@
 
 ## M9 — Multi-Monitor & Dock Orientations
 
-**Status:** `NOT_STARTED`
+**Status:** `DONE`
 
 **Objective:** Support Dock at left/right, multi-monitor setups, and Dock auto-hide.
 

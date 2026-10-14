@@ -1,7 +1,7 @@
 # Current Project State
 
-**Current Milestone:** M8 — Settings / Pet Selection  
-**Status:** M1 through M8 DONE
+**Current Milestone:** M9 — Multi-Monitor & Dock Orientations  
+**Status:** M1 through M9 DONE
 
 ## Working
 
@@ -11,26 +11,26 @@
 - Window level `.floating` — above desktop, below system UI
 - Spaces: `.canJoinAllSpaces`, `.fullScreenAuxiliary`, `.stationary`, `.ignoresCycle`
 - DockGeometry module: detects bottom, left, and right Dock orientations from screen geometry (M2)
+- Multi-Monitor support: automatic Dock display detection and manual display selection via "Display" menu bar submenu (M9)
+- Auto-hide support: detects `com.apple.dock` auto-hide flag, places pet gracefully on the screen edge (M9)
 - SpriteView: Core Graphics + CALayer with nearest-neighbor rendering (`.magnificationFilter = .nearest`, no blur) (M3)
 - Real pixel-art sprites generated for all 7 pet types: Cat, Dog, Parrot, Rabbit, Turtle, Dinosaur, Hamster (ADR-013)
 - Multi-state animations: idle (3 frames), walk (4 frames), sleep (2 frames)
-- PetMovement: horizontal movement physics with boundary collision turnaround and direction flipping (M4)
+- PetMovement: horizontal/vertical movement physics with boundary collision turnaround and orientation-aware direction (M4/M9)
 - PetStateMachine: idle ↔ walk transitions, sleep after prolonged idle, click interaction, deterministic RNG testing (M5)
 - PetAssetLoader: scans `Assets/Pets/`, decodes `manifest.json`, loads animation frame PNGs with fallback chain and caching (M6)
 - Sprite interaction: click-through transparent regions via per-pixel alpha hit testing, click triggers pet reaction (M7)
 - Menu Bar pet selection: "Select Pet" submenu with checkmarks for active pet, persisted across launches via UserDefaults (M8)
 - Battery optimization: pauses window frame updates when pet is idle/sleeping
-- 31 automated unit tests passing in 0.007s
+- 34 automated unit tests passing in 0.006s
 
 ## Not Implemented
 
-- Left/right Dock full walking logic, Dock auto-hide, multi-monitor display switching (M9)
 - Performance profiling and automated CPU/memory benchmarks (M10)
 - Code signing, notarization, DMG / installer packaging (M11)
 
 ## Known Issues
 
-- Dock auto-hide: when auto-hide is active, `visibleFrame` equals `screenFrame`; pet defaults to bottom screen edge (deferred to M9)
 - Benign `_NSDetectedLayoutRecursion` warning from NSStatusItem (macOS system internal behavior)
 
 ## Important Decisions
@@ -42,7 +42,7 @@
 | 003 | Primary framework: AppKit | ACCEPTED |
 | 004 | Rendering: Core Graphics + CALayer | **ACCEPTED** (M3 validated) |
 | 005 | Dock detection: geometry inference | **ACCEPTED** (M2 validated) |
-| 006 | Dock auto-hide handling | PROPOSED (deferred to M9) |
+| 006 | Dock auto-hide handling | **ACCEPTED** (M9 validated) |
 | 007 | Animation timing: CADisplayLink | **ACCEPTED** (M4/M5 validated) |
 | 008 | Settings UI: AppKit NSMenu | **ACCEPTED** (M8 validated) |
 | 009 | Persistence: UserDefaults | **ACCEPTED** (M8 validated) |
@@ -101,8 +101,8 @@ PixelPet/
 
 ## Next Recommended Task
 
-**M9 — Multi-Monitor & Dock Orientations**: Extend walking and positioning along side Docks (left/right vertical movement) and improve Dock auto-hide behavior.
+**M10 — Performance / Stability**: Conduct memory leak audit, CPU profiling, and verify power consumption during long-running background execution.
 
 ## Last Significant Change
 
-Completed M2 through M8: implemented DockGeometry, SpriteView nearest-neighbor rendering, PetStateMachine, PetMovement, PetAssetLoader with fallback chains, real pixel art for all 7 pet types, click hit-testing, and menu bar pet selection with persistence.
+Completed M9: Implemented multi-monitor display detection and menu selection, auto-hide Dock accommodation, and 34 unit tests passing.

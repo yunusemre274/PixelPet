@@ -72,13 +72,15 @@ final class PetCoordinator {
         print("[PetCoordinator] Loaded pet: \(petName) (\(manifest.spriteSize.width)×\(manifest.spriteSize.height) @\(manifest.scale)x)")
     }
 
-    /// Updates the Dock geometry context (called when screen changes).
+    /// Updates the Dock geometry context (called when screen or display changes).
     func updateDockInfo(_ dockInfo: DockInfo) {
+        let changedOrientation = (self.dockInfo?.orientation != dockInfo.orientation)
+        let changedScreen = (self.dockInfo?.screenFrame != dockInfo.screenFrame)
         let isFirst = (self.dockInfo == nil)
         self.dockInfo = dockInfo
 
         let petSize = manifest?.displaySize ?? CGSize(width: 64, height: 64)
-        if isFirst || movement.positionX == 0 {
+        if isFirst || changedOrientation || changedScreen || movement.positionX == 0 {
             let baseFrame = DockGeometry.petFrame(dockInfo: dockInfo, petSize: petSize)
             let initialPos = (dockInfo.orientation == .bottom) ? baseFrame.origin.x : baseFrame.origin.y
             movement.setPosition(initialPos)
@@ -147,8 +149,13 @@ final class PetCoordinator {
             updatePanelPosition(dockInfo: dockInfo, petSize: petSize)
         }
 
-        // Update sprite direction
-        spriteView.isFacingLeft = (movement.direction == .left)
+        // Update sprite direction based on movement direction and Dock orientation
+        switch dockInfo?.orientation ?? .bottom {
+        case .bottom, .left:
+            spriteView.isFacingLeft = (movement.direction == .left)
+        case .right:
+            spriteView.isFacingLeft = (movement.direction == .right)
+        }
     }
 
     // MARK: - State Handling

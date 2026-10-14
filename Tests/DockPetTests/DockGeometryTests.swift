@@ -176,3 +176,74 @@ struct DockMovementBoundsTests {
         #expect(bounds.upperBound == 828)  // 900 - 64 - 8
     }
 }
+
+// MARK: - Multi-Monitor Tests (M9)
+
+@Suite("DockGeometry Multi-Monitor Tests")
+struct DockMultiMonitorTests {
+
+    let primaryScreen = ScreenGeometry(
+        id: "primary",
+        name: "Built-in Retina Display",
+        frame: CGRect(x: 0, y: 0, width: 1470, height: 956),
+        visibleFrame: CGRect(x: 0, y: 65, width: 1470, height: 858) // 65pt dock
+    )
+
+    let secondaryScreen = ScreenGeometry(
+        id: "secondary",
+        name: "External 4K Display",
+        frame: CGRect(x: 1470, y: -124, width: 1920, height: 1080),
+        visibleFrame: CGRect(x: 1470, y: -124, width: 1920, height: 1080) // no dock gap
+    )
+
+    @Test("Finds screen containing Dock gap among multiple screens")
+    func findDockScreenWithGap() {
+        let screens = [secondaryScreen, primaryScreen] // secondary listed first
+
+        let dockScreen = DockGeometry.findDockScreen(among: screens)
+
+        #expect(dockScreen?.id == "primary")
+        #expect(dockScreen?.name == "Built-in Retina Display")
+    }
+
+    @Test("Finds left-docked screen among multiple screens")
+    func findLeftDockScreen() {
+        let leftDockScreen = ScreenGeometry(
+            id: "leftDock",
+            name: "Side Monitor",
+            frame: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            visibleFrame: CGRect(x: 75, y: 0, width: 1845, height: 1045) // 75pt left dock
+        )
+        let otherScreen = ScreenGeometry(
+            id: "other",
+            name: "Other Monitor",
+            frame: CGRect(x: 1920, y: 0, width: 1920, height: 1080),
+            visibleFrame: CGRect(x: 1920, y: 0, width: 1920, height: 1045) // only menu bar
+        )
+
+        let dockScreen = DockGeometry.findDockScreen(among: [otherScreen, leftDockScreen])
+
+        #expect(dockScreen?.id == "leftDock")
+    }
+
+    @Test("Falls back to primary display (origin 0,0) when all docks are auto-hidden")
+    func fallbackToPrimaryOnAutoHide() {
+        let autoHidePrimary = ScreenGeometry(
+            id: "primary",
+            name: "Primary Display",
+            frame: CGRect(x: 0, y: 0, width: 1470, height: 956),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1470, height: 920) // no bottom dock gap
+        )
+        let autoHideSecondary = ScreenGeometry(
+            id: "secondary",
+            name: "Secondary Display",
+            frame: CGRect(x: 1470, y: 0, width: 1920, height: 1080),
+            visibleFrame: CGRect(x: 1470, y: 0, width: 1920, height: 1080)
+        )
+
+        let dockScreen = DockGeometry.findDockScreen(among: [autoHideSecondary, autoHidePrimary])
+
+        #expect(dockScreen?.id == "primary")
+    }
+}
+

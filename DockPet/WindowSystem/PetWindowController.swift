@@ -1,9 +1,10 @@
 import AppKit
 
-/// Manages the pet panel lifecycle, asset loading, and coordination.
+/// Manages the pet panel lifecycle, asset loading, display selection, and coordination.
 ///
-/// Uses DockGeometry for positioning (M2), SpriteView for rendering (M3),
-/// PetCoordinator for behavior (M4/M5), PetAssetLoader for assets (M6).
+/// Uses DockGeometry for multi-monitor & orientation positioning (M2/M9),
+/// SpriteView for rendering (M3), PetCoordinator for behavior (M4/M5),
+/// PetAssetLoader for assets (M6).
 final class PetWindowController {
 
     /// Display size of the pet in points (default, overridden by manifest).
@@ -19,6 +20,9 @@ final class PetWindowController {
 
     /// Name of the currently loaded pet.
     private(set) var currentPetName: String?
+
+    /// Currently selected display preference: "auto" or screen name.
+    private(set) var selectedDisplay: String = UserDefaults.standard.string(forKey: "SelectedDisplay") ?? "auto"
 
     init() {
         let assetsDir = Self.resolveAssetsDirectory()
@@ -70,6 +74,30 @@ final class PetWindowController {
         assetLoader.discoverPets()
     }
 
+    /// Selects a display target and repositions the pet.
+    func selectDisplay(_ displayIdentifier: String) {
+        selectedDisplay = displayIdentifier
+        UserDefaults.standard.set(displayIdentifier, forKey: "SelectedDisplay")
+        repositionPet()
+    }
+
+    /// Returns available displays for the menu bar menu.
+    func availableDisplays() -> [(id: String, name: String)] {
+        var result: [(id: String, name: String)] = [("auto", "Auto (Follow Dock)")]
+        for screen in NSScreen.screens {
+            result.append((id: screen.localizedName, name: screen.localizedName))
+        }
+        return result
+    }
+
+    /// Manually triggers repositioning (e.g. after display change).
+    func repositionPet() {
+        let newDockInfo = detectDock()
+        currentDockInfo = newDockInfo
+        coordinator?.updateDockInfo(newDockInfo)
+        print("[DockPet] Repositioned: Dock=\(newDockInfo.orientation), autoHide=\(newDockInfo.isAutoHide)")
+    }
+
     // MARK: - Panel Setup
 
     private func createPanel() {
@@ -97,7 +125,7 @@ final class PetWindowController {
         self.panel = petPanel
         self.coordinator = petCoordinator
 
-        print("[DockPet] Dock: \(dockInfo.orientation), thickness: \(dockInfo.dockThickness)pt")
+        print("[DockPet] Dock: \(dockInfo.orientation), thickness: \(dockInfo.dockThickness)pt, autoHide: \(dockInfo.isAutoHide)")
 
         // Listen for screen geometry changes
         NotificationCenter.default.addObserver(
@@ -139,29 +167,44 @@ final class PetWindowController {
         return fallback
     }
 
-    // MARK: - Dock Detection
+    // MARK: - Dock & Screen Detection
 
     private func detectDock() -> DockInfo {
-        guard let screen = NSScreen.main ?? NSScreen.screens.first else {
+        let screenGeometries = NSScreen.screens.map { screen in
+            ScreenGeometry(
+                id: screen.localizedName,
+                name: screen.localizedName,
+                frame: screen.frame,
+                visibleFrame: screen.visibleFrame
+            )
+        }
+
+        let targetScreen: ScreenGeometry?
+        if selectedDisplay == "auto" {
+            targetScreen = DockGeometry.findDockScreen(among: screenGeometries)
+        } else {
+            targetScreen = screenGeometries.first(where: { $0.name == selectedDisplay || $0.id == selectedDisplay })
+                ?? DockGeometry.findDockScreen(among: screenGeometries)
+        }
+
+        guard let target = targetScreen else {
             return DockInfo(
                 orientation: .bottom,
                 screenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
                 visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
-                dockThickness: 0
+                dockThickness: 0,
+                isAutoHide: false
             )
         }
 
         return DockGeometry.detect(
-            screenFrame: screen.frame,
-            visibleFrame: screen.visibleFrame
+            screenFrame: target.frame,
+            visibleFrame: target.visibleFrame
         )
     }
 
     @objc private func screenParametersChanged() {
-        let newDockInfo = detectDock()
-        currentDockInfo = newDockInfo
-        coordinator?.updateDockInfo(newDockInfo)
-        print("[DockPet] Repositioned: Dock=\(newDockInfo.orientation)")
+        repositionPet()
     }
 
     deinit {

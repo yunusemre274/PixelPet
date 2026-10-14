@@ -2,22 +2,33 @@ import AppKit
 
 /// Manages application lifecycle and menu bar status item.
 /// Owns the PetWindowController and provides menu bar controls for Show/Hide,
-/// Pet Selection, and Quit.
+/// Pet Selection, Multi-Monitor Display Selection, and Quit.
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusItem: NSStatusItem?
     private var petWindowController: PetWindowController?
     private var petMenuItems: [NSMenuItem] = []
+    private var displayMenuItems: [NSMenuItem] = []
+    private var displaysSubmenu: NSMenu?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("[DockPet] Application started")
 
         setupPetWindow()
         setupMenuBar()
+
+        // Listen for screen changes to update display menu
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screensChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         print("[DockPet] Application terminating")
+        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Menu Bar
@@ -53,10 +64,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         petSelectMenuItem.submenu = petsSubmenu
         menu.addItem(petSelectMenuItem)
 
+        // Displays Submenu (M9)
+        let dispSubmenu = NSMenu()
+        self.displaysSubmenu = dispSubmenu
+        populateDisplayMenu(dispSubmenu)
+
+        let displaySelectMenuItem = NSMenuItem(title: "Display", action: nil, keyEquivalent: "")
+        displaySelectMenuItem.submenu = dispSubmenu
+        menu.addItem(displaySelectMenuItem)
+
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit DockPet", action: #selector(quitApp), keyEquivalent: "q"))
 
         statusItem?.menu = menu
+    }
+
+    private func populateDisplayMenu(_ menu: NSMenu) {
+        menu.removeAllItems()
+        displayMenuItems.removeAll()
+
+        let currentDisplay = petWindowController?.selectedDisplay ?? "auto"
+        let displays = petWindowController?.availableDisplays() ?? [("auto", "Auto (Follow Dock)")]
+
+        for (id, name) in displays {
+            let item = NSMenuItem(title: name, action: #selector(selectDisplay(_:)), keyEquivalent: "")
+            item.representedObject = id
+            item.state = (id == currentDisplay) ? .on : .off
+            menu.addItem(item)
+            displayMenuItems.append(item)
+        }
     }
 
     private func updatePetMenuCheckmarks(selectedPet: String) {
@@ -64,6 +100,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if let petName = item.representedObject as? String {
                 item.state = (petName == selectedPet) ? .on : .off
             }
+        }
+    }
+
+    private func updateDisplayMenuCheckmarks(selectedDisplay: String) {
+        for item in displayMenuItems {
+            if let displayId = item.representedObject as? String {
+                item.state = (displayId == selectedDisplay) ? .on : .off
+            }
+        }
+    }
+
+    @objc private func screensChanged() {
+        if let menu = displaysSubmenu {
+            populateDisplayMenu(menu)
         }
     }
 
@@ -94,6 +144,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         petWindowController?.loadPet(named: petName)
         UserDefaults.standard.set(petName, forKey: "SelectedPet")
         updatePetMenuCheckmarks(selectedPet: petName)
+    }
+
+    @objc private func selectDisplay(_ sender: NSMenuItem) {
+        guard let displayId = sender.representedObject as? String else { return }
+        print("[DockPet] Selected display: \(displayId)")
+
+        petWindowController?.selectDisplay(displayId)
+        updateDisplayMenuCheckmarks(selectedDisplay: displayId)
     }
 
     @objc private func quitApp() {

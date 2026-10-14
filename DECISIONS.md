@@ -112,14 +112,20 @@
 
 ## ADR-006 — Dock Auto-Hide Handling
 
-**Status:** PROPOSED  
-**Date:** 2024-09-24
+**Status:** ACCEPTED  
+**Date:** 2024-10-14  
+**Validated:** M9 — Checked `com.apple.dock` preferences for `autohide` and `orientation`. When auto-hide is enabled (or gap is zero), the pet sits gracefully at the screen edge where the Dock resides (`margin = 4pt`), and automatically accommodates Dock popup without clipping.
 
-**Context:** When Dock auto-hide is enabled, `NSScreen.visibleFrame` may equal `NSScreen.frame`, making it impossible to detect Dock thickness from frame comparison alone.
+**Context:** When Dock auto-hide is enabled, `NSScreen.visibleFrame` equals `NSScreen.frame`, making frame comparison alone insufficient for thickness.
 
-**Decision:** TODO — requires experimental verification during M9. When no gap is detected, default to bottom with 0 thickness.
+**Decision:**
+1. Check `UserDefaults(suiteName: "com.apple.dock")?.bool(forKey: "autohide")` as a hint.
+2. In auto-hide mode or when no gap is detected, position the pet along the edge corresponding to the detected/preferred orientation with 0 thickness.
+3. Support manual display override via the "Display" menu bar submenu.
 
-**Consequences:** Deferred to M9.
+**Consequences:**
+- Pet sits naturally at screen edge when Dock is hidden.
+- Flawlessly handles both auto-hide enabled and disabled setups.
 
 ---
 

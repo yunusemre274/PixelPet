@@ -51,8 +51,8 @@ final class PetCoordinator {
 
     /// Computed display size based on base sprite size and userScale.
     var currentPetDisplaySize: CGSize {
-        let baseWidth = manifest?.spriteSize.width ?? 32
-        let baseHeight = manifest?.spriteSize.height ?? 32
+        let baseWidth = manifest?.spriteSize.width ?? 64
+        let baseHeight = manifest?.spriteSize.height ?? 64
         return CGSize(width: CGFloat(baseWidth * userScale), height: CGFloat(baseHeight * userScale))
     }
 
@@ -117,6 +117,11 @@ final class PetCoordinator {
 
     /// Loads a pet by name and starts its animation and movement.
     func loadPet(named petName: String) {
+        // Clear cache for previous pet to reduce memory
+        if let previousPet = currentPetName, previousPet != petName {
+            assetLoader.clearCache(for: previousPet)
+        }
+
         guard let manifest = assetLoader.loadManifest(for: petName) else {
             print("[PetCoordinator] Failed to load manifest for \(petName)")
             return
@@ -250,7 +255,7 @@ final class PetCoordinator {
             // Ramp up to high refresh rate (60-120Hz) for fluid animation
             displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 60)
             movement.startMoving()
-        case .idle, .sleeping, .interaction:
+        case .idle, .sleeping, .interaction, .specialAnimation:
             // Throttle to 5-10Hz when stationary to save energy
             displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 5, maximum: 10, preferred: 5)
             movement.stopMoving()
@@ -283,6 +288,7 @@ final class PetCoordinator {
         case .walking: return "walk"
         case .sleeping: return "sleep"
         case .interaction: return "interaction"
+        case .specialAnimation: return "special"
         }
     }
 

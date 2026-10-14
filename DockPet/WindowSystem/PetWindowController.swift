@@ -133,7 +133,8 @@ final class PetWindowController {
         currentDockInfo = dockInfo
 
         let savedScale = petScale
-        let initialPetSize = CGSize(width: 32 * savedScale, height: 32 * savedScale)
+        let baseSize = 64  // New sprite base size
+        let initialPetSize = CGSize(width: baseSize * savedScale, height: baseSize * savedScale)
 
         let frame = DockGeometry.petFrame(
             dockInfo: dockInfo,

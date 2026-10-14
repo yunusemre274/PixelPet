@@ -29,10 +29,20 @@ struct PetAssetLoaderTests {
 
         #expect(manifest != nil)
         #expect(manifest?.name == "Cat")
-        #expect(manifest?.spriteSize.width == 32)
-        #expect(manifest?.spriteSize.height == 32)
+        #expect(manifest?.spriteSize.width == 64)
+        #expect(manifest?.spriteSize.height == 64)
         #expect(manifest?.animations["idle"] != nil)
         #expect(manifest?.animations["walk"] != nil)
+        #expect(manifest?.animations["special"] != nil)
+    }
+
+    @Test("Discovers CristianoRonaldo and LionelMessi")
+    func discoverNewPets() {
+        let loader = PetAssetLoader(assetsDirectory: assetsDir)
+        let pets = loader.discoverPets()
+
+        #expect(pets.contains("CristianoRonaldo"))
+        #expect(pets.contains("LionelMessi"))
     }
 
     @Test("Loads frames for idle animation")
@@ -41,7 +51,7 @@ struct PetAssetLoaderTests {
         let frames = loader.loadFrames(for: "Cat", animation: "idle")
 
         #expect(frames != nil)
-        #expect(frames?.count == 3)
+        #expect(frames?.count == 4)
     }
 
     @Test("Loads frames for walk animation")
@@ -59,7 +69,19 @@ struct PetAssetLoaderTests {
         let frames = loader.loadFrames(for: "Cat", animation: "interaction")
 
         #expect(frames != nil)
-        #expect(frames?.count == 3)
+        #expect(frames?.count == 4)
+    }
+
+    @Test("Loads frames for special animation")
+    func loadSpecialFrames() {
+        let loader = PetAssetLoader(assetsDirectory: assetsDir)
+        let ronaldoFrames = loader.loadFrames(for: "CristianoRonaldo", animation: "special")
+        let messiFrames = loader.loadFrames(for: "LionelMessi", animation: "special")
+        let turtleFrames = loader.loadFrames(for: "Turtle", animation: "special")
+
+        #expect(ronaldoFrames != nil && ronaldoFrames?.count == 12)
+        #expect(messiFrames != nil && messiFrames?.count == 16)
+        #expect(turtleFrames != nil && turtleFrames?.count == 8)
     }
 
     @Test("Falls back to idle for missing animation state")
@@ -69,7 +91,7 @@ struct PetAssetLoaderTests {
         let frames = loader.loadFrames(for: "Cat", animation: "jump")
 
         #expect(frames != nil)
-        #expect(frames?.count == 3) // idle has 3 frames
+        #expect(frames?.count == 4) // idle has 4 frames
     }
 
     @Test("Frame caching returns cached instances")

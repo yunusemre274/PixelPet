@@ -56,7 +56,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         petMenuItems.removeAll()
         for petName in availablePets {
-            let item = NSMenuItem(title: petName, action: #selector(selectPet(_:)), keyEquivalent: "")
+            let title = formattedPetName(petName)
+            let item = NSMenuItem(title: title, action: #selector(selectPet(_:)), keyEquivalent: "")
             item.representedObject = petName
             item.state = (petName == currentPet) ? .on : .off
             petsSubmenu.addItem(item)
@@ -71,9 +72,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let sizeSubmenu = NSMenu()
         let currentScale = petWindowController?.petScale ?? 2
         let scaleOptions: [(scale: Int, title: String)] = [
-            (1, "Small (32px)"),
-            (2, "Normal (64px)"),
-            (3, "Large (96px)")
+            (1, "1× (64px)"),
+            (2, "2× (128px)"),
+            (3, "3× (192px)")
         ]
 
         scaleMenuItems.removeAll()
@@ -244,6 +245,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         petWindowController?.selectDisplay(displayId)
         updateDisplayMenuCheckmarks(selectedDisplay: displayId)
+    }
+
+    private func formattedPetName(_ name: String) -> String {
+        switch name {
+        case "CristianoRonaldo": return "Cristiano Ronaldo"
+        case "LionelMessi": return "Lionel Messi"
+        default: return name
+        }
     }
 
     @objc private func quitApp() {

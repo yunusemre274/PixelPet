@@ -1,7 +1,7 @@
 # Current Project State
 
-**Current Milestone:** All Milestones (M0 — M14) Completed  
-**Status:** ALL MILESTONES DONE — RELEASE PACKAGED & READY FOR USE
+**Current Milestone:** All Milestones (M0 — M21) Completed  
+**Status:** ALL MILESTONES DONE — CUSTOM 64×64 PETS, CR7 & MESSI, SIGNATURE ANIMATIONS & EXTREME OPTIMIZATION COMPLETE
 
 ## Working
 
@@ -13,32 +13,35 @@
 - DockGeometry module: detects bottom, left, and right Dock orientations from screen geometry (M2)
 - Multi-Monitor support: automatic Dock display detection and manual display selection via "Display" menu bar submenu (M9)
 - Auto-hide support: detects `com.apple.dock` auto-hide flag, places pet gracefully on the screen edge (M9)
-- SpriteView: Core Graphics + CALayer with nearest-neighbor rendering (`.magnificationFilter = .nearest`, no blur) (M3)
-- Real pixel-art sprites generated for all 7 pet types: Cat, Dog, Parrot, Rabbit, Turtle, Dinosaur, Hamster (ADR-013)
-- Multi-state animations: idle (3 frames), walk (4 frames), sleep (2 frames), interaction (3 frames)
+- SpriteView: Core Graphics + CALayer with nearest-neighbor rendering (`.magnificationFilter = .nearest`, no blur) (M3/M17)
+- **High-Quality 64×64 Pixel-Art Upgraded for 9 Pet Types** (M15/M16/M20, ADR-017):
+  - Cat, Dog, Parrot, Rabbit, Turtle, Dinosaur, Hamster
+  - **Cristiano Ronaldo**: SIU spin & landing celebration + Champions League trophy lift
+  - **Lionel Messi**: Goal celebration slide + World Cup trophy lift
+  - **Turtle**: Full protective shell retreat & peek animation
+- **Advanced State Machine & Pet Behavior** (M5/M17/M20):
+  - States: `idle`, `walking`, `sleeping`, `interaction`, `specialAnimation`
+  - Periodic 15–30s signature special animations
+  - Active time tracking: after cumulative 2 minutes (120s) of activity (idle+walking), pet enters a 30s restorative sleep
+  - Interactive reaction animations with click feedback and native `Pop` sound
 - PetMovement: horizontal/vertical movement physics with boundary collision turnaround and orientation-aware direction (M4/M9)
-- PetStateMachine: idle ↔ walk transitions, sleep after prolonged idle, click interaction, deterministic RNG testing (M5)
-- PetAssetLoader: scans `Assets/Pets/`, decodes `manifest.json`, loads animation frame PNGs with fallback chain and caching (M6)
-- Sprite interaction: click-through transparent regions via per-pixel alpha hit testing, click triggers pet reaction (M7)
-- Interactive Reaction Animations (M12):
-  - 3-frame reaction animation for each pet: happy eyes, 1-pixel bounce, pulsing pixel heart / sparkles
-  - Native macOS audio feedback via AppKit `NSSound(named: "Pop")` with menu bar toggle
+- PetAssetLoader: scans `Assets/Pets/`, decodes `manifest.json`, loads animation frame PNGs with fallback chain and active-pet-only caching (M6/M19)
+- Sprite interaction: click-through transparent regions via per-pixel alpha hit testing (M7)
 - User Customization & Menu Bar Controls (M13):
-  - "Pet Size" submenu: Small (1× / 32px), Normal (2× / 64px), Large (3× / 96px)
-  - "Activity Level" submenu: Calm (longer sleeps, slower walk), Normal, Energetic (faster walk, frequent movements)
+  - "Pet Size" submenu: 1× (64px), 2× (128px), 3× (192px)
+  - "Activity Level" submenu: Calm, Normal, Energetic
   - Dynamic window resizing, movement bounds recalculation, and Dock geometry adjustment
   - All settings persisted via `UserDefaults` across app launches
-- Power & Performance Optimization (M10):
+- **Extreme Power & Memory Optimization** (M10/M19):
   - Dynamic display link throttling (5-10Hz when idle/sleeping, 60-120Hz during walking)
-  - Zero-allocation drawing loop with pre-cached `CGImage` structures
-  - CPU usage: 0.2% - 0.4% during idle
-  - Memory: 54MB flat, zero leak / growth
+  - Active-pet cache eviction upon switching pets
+  - CPU usage: 0.2% - 0.5% during idle
+  - Memory: **22.1 MB physical footprint** (measured via `vmmap -summary`, within 10MB-30MB target budget)
 - Packaging & Distribution (M11 & M14):
   - High-resolution retro pixel-art macOS squircle `AppIcon.icns` generated via `scripts/generate_app_icon.py` and `iconutil`
   - Self-contained signed release `.app` bundle via `./scripts/build_app.sh --release`
   - Automated compressed DMG installer creation with drag-and-drop `/Applications` symlink via `./scripts/create_dmg.sh`
-  - Ad-hoc codesigning with Gatekeeper compliance
-- 38 automated unit tests passing across 9 test suites in 0.06s
+- **42 automated unit tests passing across 9 test suites in 0.05s**
 
 ## Not Implemented / Future Explorations
 

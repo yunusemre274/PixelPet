@@ -7,6 +7,7 @@ enum PetState: String, CaseIterable {
     case walking
     case sleeping
     case interaction
+    case specialAnimation
 }
 
 /// Events that can trigger state transitions.
@@ -15,6 +16,7 @@ enum PetEvent {
     case clicked
     case animationComplete
     case hitBoundary
+    case specialTrigger
 }
 
 /// Direction the pet is facing/moving.
@@ -28,14 +30,18 @@ enum PetDirection {
 /// Manages state transitions and timing. The state machine is fully
 /// deterministic when given a fixed random seed, making it unit-testable.
 ///
-/// Transition graph (MVP):
+/// Transition graph:
 /// ```
 /// idle → walking (timer)
 /// walking → idle (timer or boundary)
 /// idle → interaction (clicked)
+/// walking → interaction (clicked)
 /// interaction → idle (animation complete)
-/// idle → sleeping (long idle timer)
-/// sleeping → idle (timer or clicked)
+/// idle → sleeping (2min cumulative active time)
+/// sleeping → idle (timer 30s or clicked)
+/// idle → specialAnimation (15-30s periodic trigger)
+/// walking → specialAnimation (15-30s periodic trigger)
+/// specialAnimation → idle (animation complete)
 /// ```
 final class PetStateMachine {
 
@@ -48,8 +54,12 @@ final class PetStateMachine {
     /// Time remaining in the current state before auto-transition.
     private var stateTimer: TimeInterval = 0
 
-    /// How long the pet has been continuously idle (for sleep transition).
-    private var idleDuration: TimeInterval = 0
+    /// Cumulative time the pet has been active (idle + walking) since last sleep.
+    /// Resets after sleeping.
+    private var activeTime: TimeInterval = 0
+
+    /// Time until next special animation trigger.
+    private var specialAnimationTimer: TimeInterval = 0
 
     /// Random number generator (injectable for testing).
     private var rng: any RandomNumberGenerator
@@ -65,17 +75,32 @@ final class PetStateMachine {
     /// Interaction animation duration in seconds.
     var interactionDuration: TimeInterval = 0.8
 
-    /// Sleep duration range in seconds.
-    var sleepDurationRange: ClosedRange<TimeInterval> = 5.0...15.0
+    /// Sleep duration in seconds (fixed 30s as per requirement).
+    var sleepDuration: TimeInterval = 30.0
 
-    /// How long the pet must be idle before it falls asleep.
-    var sleepThreshold: TimeInterval = 20.0
+    /// How long the pet must be active (cumulative idle+walking) before it sleeps.
+    /// Default: 120 seconds (2 minutes).
+    var sleepAfterActiveTime: TimeInterval = 120.0
+
+    /// Special animation duration in seconds.
+    var specialAnimationDuration: TimeInterval = 2.5
+
+    /// Range for periodic special animation trigger (15-30 seconds).
+    var specialAnimationInterval: ClosedRange<TimeInterval> = 15.0...30.0
 
     // MARK: - Init
 
     init(rng: any RandomNumberGenerator = SystemRandomNumberGenerator()) {
         self.rng = rng
         self.stateTimer = randomDuration(from: idleDurationRange)
+        self.specialAnimationTimer = randomDuration(from: specialAnimationInterval)
+    }
+
+    /// Resets internal timers according to current configuration ranges.
+    func resetTimers() {
+        self.stateTimer = randomDuration(from: idleDurationRange)
+        self.specialAnimationTimer = randomDuration(from: specialAnimationInterval)
+        self.activeTime = 0
     }
 
     // MARK: - Update
@@ -85,8 +110,29 @@ final class PetStateMachine {
     func update(deltaTime: TimeInterval) {
         stateTimer -= deltaTime
 
-        if state == .idle {
-            idleDuration += deltaTime
+        // Track active time (idle + walking count as "active")
+        if state == .idle || state == .walking {
+            activeTime += deltaTime
+
+            // Decrement special animation timer only during active states
+            specialAnimationTimer -= deltaTime
+
+            // Check if it's time for a special animation
+            if specialAnimationTimer <= 0 {
+                specialAnimationTimer = randomDuration(from: specialAnimationInterval)
+                handleEvent(.specialTrigger)
+                return
+            }
+        }
+
+        // Check if pet should sleep after 2 minutes of activity
+        if (state == .idle || state == .walking) && activeTime >= sleepAfterActiveTime {
+            let oldState = state
+            transition(to: .sleeping)
+            if state != oldState {
+                onStateChanged?(oldState, state)
+            }
+            return
         }
 
         if stateTimer <= 0 {
@@ -102,11 +148,7 @@ final class PetStateMachine {
 
         switch (state, event) {
         case (.idle, .timerExpired):
-            if idleDuration >= sleepThreshold {
-                transition(to: .sleeping)
-            } else {
-                transition(to: .walking)
-            }
+            transition(to: .walking)
 
         case (.walking, .timerExpired), (.walking, .hitBoundary):
             transition(to: .idle)
@@ -118,6 +160,12 @@ final class PetStateMachine {
             transition(to: .idle)
 
         case (.sleeping, .timerExpired), (.sleeping, .clicked):
+            transition(to: .idle)
+
+        case (.idle, .specialTrigger), (.walking, .specialTrigger):
+            transition(to: .specialAnimation)
+
+        case (.specialAnimation, .timerExpired), (.specialAnimation, .animationComplete):
             transition(to: .idle)
 
         default:
@@ -133,7 +181,6 @@ final class PetStateMachine {
 
     private func transition(to newState: PetState) {
         state = newState
-        idleDuration = 0
 
         switch newState {
         case .idle:
@@ -141,9 +188,12 @@ final class PetStateMachine {
         case .walking:
             stateTimer = randomDuration(from: walkDurationRange)
         case .sleeping:
-            stateTimer = randomDuration(from: sleepDurationRange)
+            stateTimer = sleepDuration
+            activeTime = 0  // Reset active time after sleeping
         case .interaction:
             stateTimer = interactionDuration
+        case .specialAnimation:
+            stateTimer = specialAnimationDuration
         }
     }
 

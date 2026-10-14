@@ -151,16 +151,46 @@ struct PetStateMachineTests {
     @Test("Update advances state timer and triggers transition")
     func updateTrigger() {
         let rng = SeededRNG(seed: 123)
-        let sm = PetStateMachine(rng: rng)
-        sm.idleDurationRange = 1.0...1.0 // fixed 1.0s timer
-
-        // Re-init with fixed range
         let smFixed = PetStateMachine(rng: rng)
         smFixed.idleDurationRange = 1.0...1.0
+        smFixed.specialAnimationInterval = 100.0...100.0
+        smFixed.resetTimers()
 
-        // Advance by 10 seconds to ensure timer fires
-        smFixed.update(deltaTime: 10.0)
+        // Advance by 1.5 seconds to ensure timer fires
+        smFixed.update(deltaTime: 1.5)
         #expect(smFixed.state == .walking)
+    }
+
+    @Test("Special trigger transitions to specialAnimation and back to idle")
+    func specialAnimationTransition() {
+        let rng = SeededRNG(seed: 123)
+        let sm = PetStateMachine(rng: rng)
+
+        sm.handleEvent(.specialTrigger)
+        #expect(sm.state == .specialAnimation)
+
+        sm.handleEvent(.animationComplete)
+        #expect(sm.state == .idle)
+    }
+
+    @Test("2 minutes of active time triggers 30s sleep")
+    func sleepAfterTwoMinutesActive() {
+        let rng = SeededRNG(seed: 123)
+        let sm = PetStateMachine(rng: rng)
+        sm.sleepAfterActiveTime = 120.0
+        sm.specialAnimationInterval = 1000.0...1000.0 // avoid special triggering during test
+        sm.resetTimers()
+
+        // Simulate 125 seconds of active time in 1-second steps
+        for _ in 0..<125 {
+            sm.update(deltaTime: 1.0)
+            if sm.state == .sleeping {
+                break
+            }
+        }
+
+        #expect(sm.state == .sleeping)
+        #expect(sm.sleepDuration == 30.0)
     }
 }
 
@@ -270,15 +300,15 @@ struct PetCustomizationTests {
 
         coordinator.setScale(1)
         #expect(coordinator.userScale == 1)
-        #expect(coordinator.currentPetDisplaySize == CGSize(width: 32, height: 32))
+        #expect(coordinator.currentPetDisplaySize == CGSize(width: 64, height: 64))
 
         coordinator.setScale(2)
         #expect(coordinator.userScale == 2)
-        #expect(coordinator.currentPetDisplaySize == CGSize(width: 64, height: 64))
+        #expect(coordinator.currentPetDisplaySize == CGSize(width: 128, height: 128))
 
         coordinator.setScale(3)
         #expect(coordinator.userScale == 3)
-        #expect(coordinator.currentPetDisplaySize == CGSize(width: 96, height: 96))
+        #expect(coordinator.currentPetDisplaySize == CGSize(width: 192, height: 192))
     }
 
     @Test("Activity level updates state durations and speed")

@@ -15,7 +15,8 @@ final class PetAssetLoader {
         "run": ["walk", "idle"],
         "sleep": ["idle"],
         "jump": ["idle"],
-        "interaction": ["idle"]
+        "interaction": ["idle"],
+        "special": ["interaction", "idle"]
     ]
 
     /// The base directory containing pet asset folders.

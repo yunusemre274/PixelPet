@@ -11,7 +11,7 @@ let package = Package(
         .executableTarget(
             name: "DockPet",
             path: "DockPet",
-            exclude: ["Resources/Info.plist"]
+            exclude: ["Resources"]
         ),
         .testTarget(
             name: "DockPetTests",

@@ -19,6 +19,10 @@
     "sleep": {
       "fps": 2,
       "loop": true
+    },
+    "interaction": {
+      "fps": 4,
+      "loop": false
     }
   },
   "movement": {

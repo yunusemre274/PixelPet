@@ -53,11 +53,20 @@ struct PetAssetLoaderTests {
         #expect(frames?.count == 4)
     }
 
+    @Test("Loads frames for interaction animation")
+    func loadInteractionFrames() {
+        let loader = PetAssetLoader(assetsDirectory: assetsDir)
+        let frames = loader.loadFrames(for: "Cat", animation: "interaction")
+
+        #expect(frames != nil)
+        #expect(frames?.count == 3)
+    }
+
     @Test("Falls back to idle for missing animation state")
     func fallbackMissingAnimation() {
         let loader = PetAssetLoader(assetsDirectory: assetsDir)
-        // 'interaction' animation folder does not exist for Cat, should fall back to 'idle'
-        let frames = loader.loadFrames(for: "Cat", animation: "interaction")
+        // 'jump' animation is not defined, should fall back to 'idle'
+        let frames = loader.loadFrames(for: "Cat", animation: "jump")
 
         #expect(frames != nil)
         #expect(frames?.count == 3) // idle has 3 frames

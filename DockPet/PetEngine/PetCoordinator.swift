@@ -19,6 +19,43 @@ final class PetCoordinator {
     private let spriteView: SpriteView
     private let panel: PetPanel
 
+    // MARK: - Customization & Settings
+
+    enum ActivityLevel: String, CaseIterable {
+        case calm = "Calm"
+        case normal = "Normal"
+        case energetic = "Energetic"
+    }
+
+    private(set) var userScale: Int = {
+        let saved = UserDefaults.standard.integer(forKey: "PetScale")
+        return saved > 0 ? saved : 2
+    }()
+
+    private(set) var activityLevel: ActivityLevel = {
+        let saved = UserDefaults.standard.string(forKey: "ActivityLevel") ?? "Normal"
+        return ActivityLevel(rawValue: saved) ?? .normal
+    }()
+
+    var isSoundEnabled: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: "SoundEffectsEnabled") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "SoundEffectsEnabled")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "SoundEffectsEnabled")
+        }
+    }
+
+    /// Computed display size based on base sprite size and userScale.
+    var currentPetDisplaySize: CGSize {
+        let baseWidth = manifest?.spriteSize.width ?? 32
+        let baseHeight = manifest?.spriteSize.height ?? 32
+        return CGSize(width: CGFloat(baseWidth * userScale), height: CGFloat(baseHeight * userScale))
+    }
+
     // MARK: - State
 
     private(set) var manifest: PetManifest?
@@ -39,6 +76,45 @@ final class PetCoordinator {
 
     // MARK: - Public
 
+    /// Sets the pet display scale multiplier (1x, 2x, 3x) and updates panel geometry.
+    func setScale(_ scale: Int) {
+        guard scale >= 1 && scale <= 4 else { return }
+        userScale = scale
+        UserDefaults.standard.set(scale, forKey: "PetScale")
+        let size = currentPetDisplaySize
+        panel.setContentSize(size)
+        if let dockInfo {
+            updatePanelPosition(dockInfo: dockInfo, petSize: size)
+        }
+        print("[PetCoordinator] Scale set to \(scale)x (\(size.width)×\(size.height))")
+    }
+
+    /// Sets the pet activity level (calm, normal, energetic) and updates physics & timers.
+    func setActivityLevel(_ level: ActivityLevel) {
+        self.activityLevel = level
+        UserDefaults.standard.set(level.rawValue, forKey: "ActivityLevel")
+        applyActivityLevel()
+        print("[PetCoordinator] Activity level set to \(level.rawValue)")
+    }
+
+    private func applyActivityLevel() {
+        let baseSpeed = CGFloat(manifest?.movement?.walkSpeed ?? 30.0)
+        switch activityLevel {
+        case .calm:
+            stateMachine.idleDurationRange = 4.0...10.0
+            stateMachine.walkDurationRange = 2.0...5.0
+            movement.speed = baseSpeed * 0.75
+        case .normal:
+            stateMachine.idleDurationRange = 2.0...6.0
+            stateMachine.walkDurationRange = 3.0...8.0
+            movement.speed = baseSpeed
+        case .energetic:
+            stateMachine.idleDurationRange = 1.0...3.0
+            stateMachine.walkDurationRange = 4.0...10.0
+            movement.speed = baseSpeed * 1.4
+        }
+    }
+
     /// Loads a pet by name and starts its animation and movement.
     func loadPet(named petName: String) {
         guard let manifest = assetLoader.loadManifest(for: petName) else {
@@ -49,11 +125,11 @@ final class PetCoordinator {
         self.manifest = manifest
         self.currentPetName = petName
 
-        // Update movement speed from manifest
-        movement.speed = CGFloat(manifest.movement?.walkSpeed ?? 30.0)
+        // Apply activity settings (movement speed and state durations)
+        applyActivityLevel()
 
-        // Resize panel to match manifest display size
-        let displaySize = manifest.displaySize
+        // Resize panel to match user scale display size
+        let displaySize = currentPetDisplaySize
         panel.setContentSize(displaySize)
 
         // Position pet initially if dock info is known
@@ -69,7 +145,7 @@ final class PetCoordinator {
         // Load and set initial animation
         switchAnimation(to: stateMachine.state)
 
-        print("[PetCoordinator] Loaded pet: \(petName) (\(manifest.spriteSize.width)×\(manifest.spriteSize.height) @\(manifest.scale)x)")
+        print("[PetCoordinator] Loaded pet: \(petName) (\(manifest.spriteSize.width)×\(manifest.spriteSize.height) @\(userScale)x)")
     }
 
     /// Updates the Dock geometry context (called when screen or display changes).
@@ -79,7 +155,7 @@ final class PetCoordinator {
         let isFirst = (self.dockInfo == nil)
         self.dockInfo = dockInfo
 
-        let petSize = manifest?.displaySize ?? CGSize(width: 64, height: 64)
+        let petSize = currentPetDisplaySize
         if isFirst || changedOrientation || changedScreen || movement.positionX == 0 {
             let baseFrame = DockGeometry.petFrame(dockInfo: dockInfo, petSize: petSize)
             let initialPos = (dockInfo.orientation == .bottom) ? baseFrame.origin.x : baseFrame.origin.y
@@ -117,10 +193,14 @@ final class PetCoordinator {
             self?.handleStateChange(from: oldState, to: newState)
         }
 
-        // Sprite click → state machine event
+        // Sprite click → state machine event + audio feedback
         spriteView.onClicked = { [weak self] in
+            guard let self else { return }
             print("[PetCoordinator] Pet was clicked!")
-            self?.stateMachine.handleEvent(.clicked)
+            if self.isSoundEnabled {
+                NSSound(named: "Pop")?.play()
+            }
+            self.stateMachine.handleEvent(.clicked)
         }
     }
 
@@ -139,7 +219,7 @@ final class PetCoordinator {
 
         // Only update movement & window frame when moving to save CPU/battery
         if movement.isMoving, let dockInfo {
-            let petSize = manifest?.displaySize ?? CGSize(width: 64, height: 64)
+            let petSize = currentPetDisplaySize
             let bounds = DockGeometry.movementBounds(dockInfo: dockInfo, petSize: petSize)
 
             let hitBoundary = movement.update(deltaTime: dt, bounds: bounds)

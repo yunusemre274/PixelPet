@@ -45,6 +45,7 @@ PALETTE_CAT = {
     'D': hex_to_rgba("#103a1d"), # Pupil
     'H': hex_to_rgba("#ffffff"), # White eye shine
     'Z': hex_to_rgba("#a855f7"), # Purple ZZZ
+    'R': hex_to_rgba("#ff2d55"), # Heart rose red
 }
 
 PALETTE_DOG = {
@@ -58,6 +59,7 @@ PALETTE_DOG = {
     'H': hex_to_rgba("#ffffff"), # White eye shine
     'P': hex_to_rgba("#ff7675"), # Tongue / pink
     'Z': hex_to_rgba("#9c27b0"), # Sleep Z
+    'R': hex_to_rgba("#ff2d55"), # Heart rose red
 }
 
 PALETTE_PARROT = {
@@ -87,6 +89,7 @@ PALETTE_RABBIT = {
     'D': hex_to_rgba("#3f101f"), # Ruby eye
     'H': hex_to_rgba("#ffffff"), # Eye shine
     'Z': hex_to_rgba("#9c27b0"), # Sleep Z
+    'R': hex_to_rgba("#ff2d55"), # Heart rose red
 }
 
 PALETTE_TURTLE = {
@@ -101,6 +104,7 @@ PALETTE_TURTLE = {
     'D': hex_to_rgba("#141d16"), # Dark eye
     'H': hex_to_rgba("#ffffff"), # Eye shine
     'Z': hex_to_rgba("#9c27b0"), # Sleep Z
+    'R': hex_to_rgba("#ff2d55"), # Heart rose red
 }
 
 PALETTE_DINOSAUR = {
@@ -115,6 +119,7 @@ PALETTE_DINOSAUR = {
     'H': hex_to_rgba("#ffffff"), # White eye shine & tooth
     'P': hex_to_rgba("#ff80ab"), # Cute pink blush
     'Z': hex_to_rgba("#9c27b0"), # Sleep Z
+    'R': hex_to_rgba("#ff2d55"), # Heart rose red
 }
 
 PALETTE_HAMSTER = {
@@ -128,6 +133,7 @@ PALETTE_HAMSTER = {
     'D': hex_to_rgba("#1a1007"), # Dark beady eye
     'H': hex_to_rgba("#ffffff"), # Eye glint
     'Z': hex_to_rgba("#9c27b0"), # Sleep Z
+    'R': hex_to_rgba("#ff2d55"), # Heart rose red
 }
 
 # ==============================================================================
@@ -2414,6 +2420,60 @@ def render_grid_to_image(grid, palette):
                 img.putpixel((x, y), color)
     return img
 
+# ==============================================================================
+# INTERACTION ANIMATION HELPERS
+# ==============================================================================
+
+HEART_PLACEMENTS = {
+    "Cat": (20, 1),
+    "Dog": (20, 1),
+    "Parrot": (8, 1),
+    "Rabbit": (7, 1),
+    "Turtle": (22, 6),
+    "Dinosaur": (8, 1),
+    "Hamster": (18, 2),
+}
+
+STAMP_HEART_SMALL = [
+    ".R.R.",
+    "RRHRR",
+    ".RRR.",
+    "..R..",
+]
+
+STAMP_HEART_FULL = [
+    ".RR.RR",
+    "RRHRRR",
+    ".RRRR.",
+    "..RR..",
+]
+
+STAMP_HEART_SPARKLE = [
+    ".H...H",
+    "...H..",
+    ".H...H",
+]
+
+def overlay_stamp(grid, stamp, start_x, start_y):
+    new_grid = [list(row) for row in grid]
+    for dy, srow in enumerate(stamp):
+        for dx, ch in enumerate(srow):
+            if ch != ".":
+                x = start_x + dx
+                y = start_y + dy
+                if 0 <= y < len(new_grid) and 0 <= x < len(new_grid[0]):
+                    new_grid[y][x] = ch
+    return ["".join(r) for r in new_grid]
+
+def hop_grid(grid):
+    return grid[1:] + ["." * 32]
+
+def make_interaction_frames(idle_frames, heart_x, heart_y):
+    f0 = overlay_stamp(idle_frames[0], STAMP_HEART_SMALL, heart_x, heart_y + 1)
+    f1 = overlay_stamp(hop_grid(idle_frames[0]), STAMP_HEART_FULL, heart_x, heart_y)
+    f2 = overlay_stamp(idle_frames[1], STAMP_HEART_SPARKLE, heart_x, max(0, heart_y - 1))
+    return [f0, f1, f2]
+
 def create_manifest(pet_name, walk_speed=30.0, run_speed=60.0):
     """Create the manifest dictionary matching DockPet asset pipeline."""
     return {
@@ -2437,6 +2497,10 @@ def create_manifest(pet_name, walk_speed=30.0, run_speed=60.0):
             "sleep": {
                 "fps": 2,
                 "loop": True
+            },
+            "interaction": {
+                "fps": 4,
+                "loop": False
             }
         },
         "movement": {
@@ -2467,6 +2531,11 @@ def generate_all_pets(output_base_dir: Path):
             json.dump(manifest_data, mf, indent=2)
 
         pet_frames_count = 0
+
+        # Generate interaction frames if not already present
+        if "interaction" not in frames_dict and "idle" in frames_dict:
+            hx, hy = HEART_PLACEMENTS.get(pet_name, (18, 2))
+            frames_dict["interaction"] = make_interaction_frames(frames_dict["idle"], hx, hy)
 
         # Generate each animation state folder and frames
         for anim_name, frame_list in frames_dict.items():

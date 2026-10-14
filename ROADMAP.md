@@ -367,3 +367,68 @@
 - Manual: mount and verify DMG image
 - Manual: Gatekeeper allows launch
 
+---
+
+## M12 — Interactive Feedback & Audio Polish
+
+**Status:** `DONE`
+
+**Objective:** Add dedicated click reaction animations for all pets and gentle native audio feedback.
+
+**Deliverables:**
+- 3-frame `interaction` pixel-art animations for all 7 pets (Cat, Dog, Parrot, Rabbit, Turtle, Dinosaur, Hamster) in `scripts/generate_sprites.py`
+- Manifest update with `"interaction": { "fps": 4, "loop": false }`
+- Native macOS `NSSound` audio feedback on click/petting
+- Sound effects menu toggle with `UserDefaults` persistence
+- Unit test for interaction frame loading
+
+**Prerequisites:** M7 `DONE`, M11 `DONE`.
+
+**Definition of Done:**
+- Clicking any pet plays a dedicated reaction animation (happy squint, 1px hop, pulsing heart)
+- Optional subtle `Pop` sound plays on click
+- Sound can be toggled on/off in the menu bar
+
+---
+
+## M13 — User Customization & Menu Bar Controls
+
+**Status:** `DONE`
+
+**Objective:** Provide user-facing customization for sprite sizing and activity pacing.
+
+**Deliverables:**
+- Pet Size submenu: Small (1× / 32px), Normal (2× / 64px), Large (3× / 96px)
+- Activity Level submenu: Calm, Normal, Energetic
+- Dynamic window resizing, movement bounds recalculation, and Dock geometry adjustment
+- Persistence via `UserDefaults`
+- Unit tests for scale and activity levels in `PetCustomizationTests`
+
+**Prerequisites:** M8 `DONE`, M12 `DONE`.
+
+**Definition of Done:**
+- Changing pet size instantly resizes the window and maintains nearest-neighbor sharpness
+- Changing activity level modifies walk speed and idle/walk timers
+- Selections persist across app relaunches
+
+---
+
+## M14 — Application Icon & Release Packaging
+
+**Status:** `DONE`
+
+**Objective:** Create a retro pixel-art macOS application icon and finalize packaging.
+
+**Deliverables:**
+- `scripts/generate_app_icon.py` generating `AppIcon.icns` with all required Apple resolutions
+- `Info.plist` updated with `CFBundleIconFile`
+- `build_app.sh` embeds `AppIcon.icns` into `Contents/Resources/`
+- DMG volume packaging with updated release `.app`
+
+**Prerequisites:** M11 `DONE`, M13 `DONE`.
+
+**Definition of Done:**
+- Release `.app` and DMG contain high-resolution macOS squircle pixel-art icon
+- Automated build and packaging scripts pass cleanly without warnings
+
+

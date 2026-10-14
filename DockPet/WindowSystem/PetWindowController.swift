@@ -98,15 +98,46 @@ final class PetWindowController {
         print("[DockPet] Repositioned: Dock=\(newDockInfo.orientation), autoHide=\(newDockInfo.isAutoHide)")
     }
 
+    // MARK: - Customization
+
+    var petScale: Int {
+        coordinator?.userScale ?? {
+            let saved = UserDefaults.standard.integer(forKey: "PetScale")
+            return saved > 0 ? saved : 2
+        }()
+    }
+
+    func setPetScale(_ scale: Int) {
+        coordinator?.setScale(scale)
+    }
+
+    var activityLevel: String {
+        coordinator?.activityLevel.rawValue ?? UserDefaults.standard.string(forKey: "ActivityLevel") ?? "Normal"
+    }
+
+    func setActivityLevel(_ level: String) {
+        if let activity = PetCoordinator.ActivityLevel(rawValue: level) {
+            coordinator?.setActivityLevel(activity)
+        }
+    }
+
+    var isSoundEnabled: Bool {
+        get { coordinator?.isSoundEnabled ?? true }
+        set { coordinator?.isSoundEnabled = newValue }
+    }
+
     // MARK: - Panel Setup
 
     private func createPanel() {
         let dockInfo = detectDock()
         currentDockInfo = dockInfo
 
+        let savedScale = petScale
+        let initialPetSize = CGSize(width: 32 * savedScale, height: 32 * savedScale)
+
         let frame = DockGeometry.petFrame(
             dockInfo: dockInfo,
-            petSize: CGSize(width: petDisplaySize.width, height: petDisplaySize.height)
+            petSize: initialPetSize
         )
 
         let petPanel = PetPanel(contentRect: frame)

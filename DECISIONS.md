@@ -286,3 +286,62 @@
 - Unblocks M3/M6 milestones immediately
 - Owner can replace sprites later without code changes (asset pipeline is data-driven)
 - Quality may be lower than hand-crafted pixel art — acceptable for MVP
+
+---
+
+## ADR-014 — Interactive Feedback & Audio Engine
+
+**Status:** ACCEPTED  
+**Date:** 2026-10-14  
+**Validated:** M12 — 3-frame reaction animations (`interaction/`) generated for all 7 pets + native `NSSound(named: "Pop")`
+
+**Context:** Clicking the pet triggered the `.interaction` state, but fell back to `.idle` due to lack of dedicated sprite frames. Visual and auditory feedback make the pet feel lively and responsive.
+
+**Decision:**
+1. Generate dedicated 3-frame `interaction` animations for all 7 pet types displaying happy squint eyes, a rising 1-pixel bounce, and a pulsing pixel heart/sparkles.
+2. Provide gentle, public macOS audio feedback using AppKit `NSSound(named: "Pop")?.play()`.
+3. Provide an in-menu checkbox toggle for sound effects, persisted via `UserDefaults`.
+
+**Consequences:**
+- Click interactions are visually delightful and audible.
+- Zero external audio dependencies or audio files needed.
+- Users who prefer silence can disable audio with one click.
+
+---
+
+## ADR-015 — In-Menu Customization (Pet Size & Activity Levels)
+
+**Status:** ACCEPTED  
+**Date:** 2026-10-14  
+**Validated:** M13 — runtime scale selection (1x, 2x, 3x) and pacing modes (Calm, Normal, Energetic)
+
+**Context:** Users have different screen resolutions (Retina vs non-Retina, Ultrawide vs Laptop) and different preferences for how active or calm the virtual pet should be.
+
+**Decision:**
+1. Expose a "Pet Size" submenu in the menu bar: `Small (32px / 1x)`, `Normal (64px / 2x)`, `Large (96px / 3x)`. Dynamic window sizing recalculates Dock placement and boundary turnaround.
+2. Expose an "Activity Level" submenu: `Calm` (longer idle/sleep periods, slower walk), `Normal` (balanced), `Energetic` (faster walk, frequent movements).
+3. Persist selections in `UserDefaults.standard`.
+
+**Consequences:**
+- User can customize pet appearance and behavior on the fly without restarting.
+- Respects nearest-neighbor scaling at all sizes with crisp pixel edges.
+
+---
+
+## ADR-016 — Application Icon & Packaging
+
+**Status:** ACCEPTED  
+**Date:** 2026-10-14  
+**Validated:** M14 — automated compilation of `AppIcon.icns` via `iconutil` and integration into `.app` and DMG
+
+**Context:** The application bundle previously lacked an official macOS application icon (`AppIcon.icns`).
+
+**Decision:**
+1. Generate a multi-resolution retro pixel-art macOS squircle app icon featuring the pet cat, red heart, and paw print.
+2. Compile into standard macOS `AppIcon.icns` using `/usr/bin/iconutil`.
+3. Include `CFBundleIconFile: AppIcon` in `Info.plist` and embed in release `.app` and `.dmg`.
+
+**Consequences:**
+- The compiled `.app` bundle and DMG installer display a professional, recognizable retro pixel-art icon.
+- Fully automated via `scripts/generate_app_icon.py` and `scripts/build_app.sh`.
+

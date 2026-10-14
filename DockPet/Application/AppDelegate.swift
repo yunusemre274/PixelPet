@@ -9,6 +9,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var petWindowController: PetWindowController?
     private var petMenuItems: [NSMenuItem] = []
     private var displayMenuItems: [NSMenuItem] = []
+    private var scaleMenuItems: [NSMenuItem] = []
+    private var activityMenuItems: [NSMenuItem] = []
+    private var soundMenuItem: NSMenuItem?
     private var displaysSubmenu: NSMenu?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -64,6 +67,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         petSelectMenuItem.submenu = petsSubmenu
         menu.addItem(petSelectMenuItem)
 
+        // Pet Size Submenu
+        let sizeSubmenu = NSMenu()
+        let currentScale = petWindowController?.petScale ?? 2
+        let scaleOptions: [(scale: Int, title: String)] = [
+            (1, "Small (32px)"),
+            (2, "Normal (64px)"),
+            (3, "Large (96px)")
+        ]
+
+        scaleMenuItems.removeAll()
+        for option in scaleOptions {
+            let item = NSMenuItem(title: option.title, action: #selector(selectPetScale(_:)), keyEquivalent: "")
+            item.representedObject = option.scale
+            item.state = (option.scale == currentScale) ? .on : .off
+            sizeSubmenu.addItem(item)
+            scaleMenuItems.append(item)
+        }
+
+        let sizeSelectMenuItem = NSMenuItem(title: "Pet Size", action: nil, keyEquivalent: "")
+        sizeSelectMenuItem.submenu = sizeSubmenu
+        menu.addItem(sizeSelectMenuItem)
+
+        // Activity Level Submenu
+        let actSubmenu = NSMenu()
+        let currentActivity = petWindowController?.activityLevel ?? "Normal"
+        let activityOptions = ["Calm", "Normal", "Energetic"]
+
+        activityMenuItems.removeAll()
+        for level in activityOptions {
+            let item = NSMenuItem(title: level, action: #selector(selectActivityLevel(_:)), keyEquivalent: "")
+            item.representedObject = level
+            item.state = (level == currentActivity) ? .on : .off
+            actSubmenu.addItem(item)
+            activityMenuItems.append(item)
+        }
+
+        let activitySelectMenuItem = NSMenuItem(title: "Activity Level", action: nil, keyEquivalent: "")
+        activitySelectMenuItem.submenu = actSubmenu
+        menu.addItem(activitySelectMenuItem)
+
         // Displays Submenu (M9)
         let dispSubmenu = NSMenu()
         self.displaysSubmenu = dispSubmenu
@@ -72,6 +115,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let displaySelectMenuItem = NSMenuItem(title: "Display", action: nil, keyEquivalent: "")
         displaySelectMenuItem.submenu = dispSubmenu
         menu.addItem(displaySelectMenuItem)
+
+        // Sound Effects Toggle
+        menu.addItem(NSMenuItem.separator())
+        let soundItem = NSMenuItem(title: "Sound Effects", action: #selector(toggleSoundEffects(_:)), keyEquivalent: "")
+        soundItem.state = (petWindowController?.isSoundEnabled ?? true) ? .on : .off
+        self.soundMenuItem = soundItem
+        menu.addItem(soundItem)
 
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit DockPet", action: #selector(quitApp), keyEquivalent: "q"))
@@ -111,6 +161,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func updateScaleMenuCheckmarks(selectedScale: Int) {
+        for item in scaleMenuItems {
+            if let scale = item.representedObject as? Int {
+                item.state = (scale == selectedScale) ? .on : .off
+            }
+        }
+    }
+
+    private func updateActivityMenuCheckmarks(selectedActivity: String) {
+        for item in activityMenuItems {
+            if let level = item.representedObject as? String {
+                item.state = (level == selectedActivity) ? .on : .off
+            }
+        }
+    }
+
     @objc private func screensChanged() {
         if let menu = displaysSubmenu {
             populateDisplayMenu(menu)
@@ -144,6 +210,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         petWindowController?.loadPet(named: petName)
         UserDefaults.standard.set(petName, forKey: "SelectedPet")
         updatePetMenuCheckmarks(selectedPet: petName)
+    }
+
+    @objc private func selectPetScale(_ sender: NSMenuItem) {
+        guard let scale = sender.representedObject as? Int else { return }
+        print("[DockPet] Selected scale: \(scale)x")
+
+        petWindowController?.setPetScale(scale)
+        updateScaleMenuCheckmarks(selectedScale: scale)
+    }
+
+    @objc private func selectActivityLevel(_ sender: NSMenuItem) {
+        guard let level = sender.representedObject as? String else { return }
+        print("[DockPet] Selected activity level: \(level)")
+
+        petWindowController?.setActivityLevel(level)
+        updateActivityMenuCheckmarks(selectedActivity: level)
+    }
+
+    @objc private func toggleSoundEffects(_ sender: NSMenuItem) {
+        let newState = !(petWindowController?.isSoundEnabled ?? true)
+        petWindowController?.isSoundEnabled = newState
+        sender.state = newState ? .on : .off
+        print("[DockPet] Sound effects: \(newState ? "enabled" : "disabled")")
+        if newState {
+            NSSound(named: "Pop")?.play()
+        }
     }
 
     @objc private func selectDisplay(_ sender: NSMenuItem) {

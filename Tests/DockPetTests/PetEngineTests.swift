@@ -251,3 +251,71 @@ struct PetMovementTests {
         #expect(movement.direction == .right)
     }
 }
+
+// MARK: - Pet Customization Tests
+
+@Suite("PetCustomization Tests")
+@MainActor
+struct PetCustomizationTests {
+
+    let assetsDir = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Assets/Pets")
+
+    @Test("PetCoordinator scale updates display size")
+    func scaleChangesDisplaySize() {
+        let panel = PetPanel(contentRect: NSRect(x: 0, y: 0, width: 64, height: 64))
+        let view = SpriteView(frame: NSRect(x: 0, y: 0, width: 64, height: 64))
+        let loader = PetAssetLoader(assetsDirectory: assetsDir)
+        let coordinator = PetCoordinator(panel: panel, spriteView: view, assetLoader: loader)
+        coordinator.loadPet(named: "Cat")
+
+        coordinator.setScale(1)
+        #expect(coordinator.userScale == 1)
+        #expect(coordinator.currentPetDisplaySize == CGSize(width: 32, height: 32))
+
+        coordinator.setScale(2)
+        #expect(coordinator.userScale == 2)
+        #expect(coordinator.currentPetDisplaySize == CGSize(width: 64, height: 64))
+
+        coordinator.setScale(3)
+        #expect(coordinator.userScale == 3)
+        #expect(coordinator.currentPetDisplaySize == CGSize(width: 96, height: 96))
+    }
+
+    @Test("Activity level updates state durations and speed")
+    func activityLevelChangesPhysics() {
+        let panel = PetPanel(contentRect: NSRect(x: 0, y: 0, width: 64, height: 64))
+        let view = SpriteView(frame: NSRect(x: 0, y: 0, width: 64, height: 64))
+        let loader = PetAssetLoader(assetsDirectory: assetsDir)
+        let coordinator = PetCoordinator(panel: panel, spriteView: view, assetLoader: loader)
+        coordinator.loadPet(named: "Cat")
+
+        coordinator.setActivityLevel(.calm)
+        #expect(coordinator.stateMachine.idleDurationRange == 4.0...10.0)
+        #expect(coordinator.stateMachine.walkDurationRange == 2.0...5.0)
+
+        coordinator.setActivityLevel(.energetic)
+        #expect(coordinator.stateMachine.idleDurationRange == 1.0...3.0)
+        #expect(coordinator.stateMachine.walkDurationRange == 4.0...10.0)
+
+        coordinator.setActivityLevel(.normal)
+        #expect(coordinator.stateMachine.idleDurationRange == 2.0...6.0)
+        #expect(coordinator.stateMachine.walkDurationRange == 3.0...8.0)
+    }
+
+    @Test("Sound setting toggle can be enabled and disabled")
+    func soundSettingToggle() {
+        let panel = PetPanel(contentRect: NSRect(x: 0, y: 0, width: 64, height: 64))
+        let view = SpriteView(frame: NSRect(x: 0, y: 0, width: 64, height: 64))
+        let loader = PetAssetLoader(assetsDirectory: assetsDir)
+        let coordinator = PetCoordinator(panel: panel, spriteView: view, assetLoader: loader)
+
+        coordinator.isSoundEnabled = true
+        #expect(coordinator.isSoundEnabled == true)
+
+        coordinator.isSoundEnabled = false
+        #expect(coordinator.isSoundEnabled == false)
+
+        coordinator.isSoundEnabled = true
+        #expect(coordinator.isSoundEnabled == true)
+    }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "LionelMessi",
+  "version": 2,
+  "spriteSize": {
+    "width": 64,
+    "height": 64
+  },
+  "scale": 1,
+  "anchorY": 0,
+  "animations": {
+    "idle": {
+      "fps": 4.0,
+      "loop": true
+    },
+    "walk": {
+      "fps": 8.0,
+      "loop": true
+    },
+    "sleep": {
+      "fps": 2.0,
+      "loop": true
+    },
+    "interaction": {
+      "fps": 6.0,
+      "loop": false
+    },
+    "special": {
+      "fps": 8.0,
+      "loop": false
+    }
+  },
+  "movement": {
+    "walkSpeed": 30.0,
+    "runSpeed": 60.0
+  }
+}

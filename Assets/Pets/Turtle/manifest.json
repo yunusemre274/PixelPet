@@ -1,32 +1,36 @@
 {
   "name": "Turtle",
-  "version": 1,
+  "version": 2,
   "spriteSize": {
-    "width": 32,
-    "height": 32
+    "width": 64,
+    "height": 64
   },
-  "scale": 2,
+  "scale": 1,
   "anchorY": 0,
   "animations": {
     "idle": {
-      "fps": 4,
+      "fps": 4.0,
       "loop": true
     },
     "walk": {
-      "fps": 6,
+      "fps": 8.0,
       "loop": true
     },
     "sleep": {
-      "fps": 2,
+      "fps": 2.0,
       "loop": true
     },
     "interaction": {
-      "fps": 4,
+      "fps": 6.0,
+      "loop": false
+    },
+    "special": {
+      "fps": 6.0,
       "loop": false
     }
   },
   "movement": {
-    "walkSpeed": 20.0,
-    "runSpeed": 40.0
+    "walkSpeed": 30.0,
+    "runSpeed": 60.0
   }
 }

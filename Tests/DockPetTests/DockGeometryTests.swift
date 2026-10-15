@@ -13,7 +13,7 @@ struct DockDetectionTests {
         let visible = CGRect(x: 0, y: 70, width: 1440, height: 795)
         // Menu bar takes ~35pt from top, Dock takes 70pt from bottom
 
-        let info = DockGeometry.detect(screenFrame: screen, visibleFrame: visible)
+        let info = DockGeometry.detect(screenFrame: screen, visibleFrame: visible, checkDefaults: false)
 
         #expect(info.orientation == .bottom)
         #expect(info.dockThickness == 70)
@@ -25,7 +25,7 @@ struct DockDetectionTests {
         let visible = CGRect(x: 70, y: 0, width: 1370, height: 865)
         // Dock on left takes 70pt, menu bar takes 35pt from top
 
-        let info = DockGeometry.detect(screenFrame: screen, visibleFrame: visible)
+        let info = DockGeometry.detect(screenFrame: screen, visibleFrame: visible, checkDefaults: false)
 
         #expect(info.orientation == .left)
         #expect(info.dockThickness == 70)
@@ -37,7 +37,7 @@ struct DockDetectionTests {
         let visible = CGRect(x: 0, y: 0, width: 1370, height: 865)
         // Dock on right takes 70pt from right
 
-        let info = DockGeometry.detect(screenFrame: screen, visibleFrame: visible)
+        let info = DockGeometry.detect(screenFrame: screen, visibleFrame: visible, checkDefaults: false)
 
         #expect(info.orientation == .right)
         #expect(info.dockThickness == 70)
@@ -49,7 +49,7 @@ struct DockDetectionTests {
         // With auto-hide, visibleFrame only loses the menu bar
         let visible = CGRect(x: 0, y: 0, width: 1440, height: 865)
 
-        let info = DockGeometry.detect(screenFrame: screen, visibleFrame: visible)
+        let info = DockGeometry.detect(screenFrame: screen, visibleFrame: visible, checkDefaults: false)
 
         // Menu bar takes top 35pt, no bottom/left/right gap → default bottom
         #expect(info.orientation == .bottom)
@@ -62,7 +62,7 @@ struct DockDetectionTests {
         let screen = CGRect(x: 1440, y: 0, width: 1920, height: 1080)
         let visible = CGRect(x: 1440, y: 65, width: 1920, height: 1015)
 
-        let info = DockGeometry.detect(screenFrame: screen, visibleFrame: visible)
+        let info = DockGeometry.detect(screenFrame: screen, visibleFrame: visible, checkDefaults: false)
 
         #expect(info.orientation == .bottom)
         #expect(info.dockThickness == 65)

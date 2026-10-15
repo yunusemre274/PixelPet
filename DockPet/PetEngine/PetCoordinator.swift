@@ -338,7 +338,8 @@ final class PetCoordinator {
 
     private func updatePanelPosition(dockInfo: DockInfo, petSize: CGSize) {
         movement.clampPosition(to: DockGeometry.movementBounds(dockInfo: dockInfo, petSize: petSize))
-        var frame = DockGeometry.petFrame(dockInfo: dockInfo, petSize: petSize)
+        let anchorOffset = CGFloat(manifest?.resolvedAnchorY ?? 0) * CGFloat(userScale)
+        var frame = DockGeometry.petFrame(dockInfo: dockInfo, petSize: petSize, anchorOffset: anchorOffset)
 
         switch dockInfo.orientation {
         case .bottom:

@@ -427,3 +427,23 @@
 - Preserve all source sheets. Select coherent existing cat poses, visible Messi ball frames, Ronaldo SIU/cup frames and quieter resting poses. Draw yarn/sleep marks as native pixel overlays.
 
 **Consequences:** Walking poses freeze without actual travel, low-frequency sleep retains correct timing, and skills show a complete ordered sequence. Source art remains reusable; runtime effects add no frame-cache growth. Regression tests cover the integration failures that pure state tests missed. The 10–30MB target is evaluated using release physical footprint, with current measurements recorded in `PROJECT_STATE.md`.
+
+---
+
+## ADR-020 — Custom Dock Startup Placement and Stable Baby Yoda Artwork
+
+**Status:** ACCEPTED
+**Date:** 2026-10-15
+
+**Context:** The user requested a green Baby Yoda with large solid black eyes, gray clothing, hood/saber/training/sleep animations, consistent appearance and a maximum 30MB physical footprint. Placement must respect a user-resized Dock when initializing.
+
+**Decision:**
+- Add BabyYoda through the existing manifest/frame pipeline. `scripts/generate_baby_yoda.py` reuses one deterministic set of head/ear/tunic/limb components; only component offsets, eyelids, hood and saber vary. Existing pet artwork stays unchanged. Pillow was already used by the asset tools; no dependency is added.
+- Keep the 10s walk → 5s signature → 10s sleep cycle. The signature is an ordered hood/draw/ignite/train sequence; `training/` also exposes the eight training frames as a reusable animation.
+- Use the actual reserved screen inset from `NSScreen.visibleFrame` whenever available, including small Docks. When the inset is not ready at startup, use the user's `com.apple.dock` tile size provisionally, rather than a fixed default height. Never apply that fallback to a manually selected non-Dock monitor. Auto-hide retains the screen-edge behavior.
+- Make Dock preferences injectable for deterministic geometry tests. The controller rechecks at 0.25s and 1s after showing, then uses existing screen-change notifications. No persistent geometry timer, window capture, private API or permission prompt is added.
+- Honor the existing manifest `anchorY` at bottom-Dock placement, scaled by the user's pet size. BabyYoda has two transparent pixels below his feet; those pixels no longer add an unintended gap.
+
+**Consequences:** All actions preserve the same character model, the existing cache/update clock stays intact, and placement adjusts to the measured Dock size. `tilesize` remains an unsandboxed preference-based estimate only until real geometry is available; it is not an exact Dock rectangle API. Swift integration tests cover custom sizes, startup fallback, auto-hide, anchors and the full cycle; Python asset tests cover unchanged component data, face/torso invariants, transparency, pixel grid and training order. Current release measurements live in `PROJECT_STATE.md`.
+
+**References:** [NSScreen.visibleFrame](https://developer.apple.com/documentation/appkit/nsscreen/visibleframe), existing `docs/MACOS_RESEARCH.md` sections 5–6 for Dock preferences and geometry limitations.

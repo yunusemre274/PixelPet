@@ -12,6 +12,7 @@ final class PetWindowController {
 
     private var panel: PetPanel?
     private var spriteView: SpriteView?
+    private var startupGeometryRefreshes: [DispatchWorkItem] = []
     private(set) var coordinator: PetCoordinator?
     let assetLoader: PetAssetLoader
 
@@ -44,11 +45,15 @@ final class PetWindowController {
 
         panel?.orderFront(nil)
         coordinator?.start()
+        // visibleFrame can settle after Dock restores its custom size at login.
+        // A bounded pair of checks avoids polling geometry on every animation tick.
+        scheduleStartupGeometryRefreshes()
         print("[DockPet] Pet panel shown")
     }
 
     /// Hides the pet panel and pauses animation.
     func hidePet() {
+        cancelStartupGeometryRefreshes()
         coordinator?.stop()
         panel?.orderOut(nil)
         print("[DockPet] Pet panel hidden")
@@ -201,6 +206,27 @@ final class PetWindowController {
 
     // MARK: - Dock & Screen Detection
 
+    private func scheduleStartupGeometryRefreshes() {
+        cancelStartupGeometryRefreshes()
+        for delay in [0.25, 1.0] {
+            let work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                let info = self.detectDock()
+                if info != self.currentDockInfo {
+                    self.currentDockInfo = info
+                    self.coordinator?.updateDockInfo(info)
+                }
+            }
+            startupGeometryRefreshes.append(work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        }
+    }
+
+    private func cancelStartupGeometryRefreshes() {
+        startupGeometryRefreshes.forEach { $0.cancel() }
+        startupGeometryRefreshes.removeAll()
+    }
+
     private func detectDock() -> DockInfo {
         let screenGeometries = NSScreen.screens.map { screen in
             ScreenGeometry(
@@ -211,12 +237,13 @@ final class PetWindowController {
             )
         }
 
+        let detectedDockScreen = DockGeometry.findDockScreen(among: screenGeometries)
         let targetScreen: ScreenGeometry?
         if selectedDisplay == "auto" {
-            targetScreen = DockGeometry.findDockScreen(among: screenGeometries)
+            targetScreen = detectedDockScreen
         } else {
             targetScreen = screenGeometries.first(where: { $0.name == selectedDisplay || $0.id == selectedDisplay })
-                ?? DockGeometry.findDockScreen(among: screenGeometries)
+                ?? detectedDockScreen
         }
 
         guard let target = targetScreen else {
@@ -229,9 +256,13 @@ final class PetWindowController {
             )
         }
 
+        var preferences = DockPreferences.current()
+        // A manually selected non-Dock display has no reserved Dock height.
+        if target.id != detectedDockScreen?.id { preferences.tileSize = nil }
         return DockGeometry.detect(
             screenFrame: target.frame,
-            visibleFrame: target.visibleFrame
+            visibleFrame: target.visibleFrame,
+            preferences: preferences
         )
     }
 
@@ -240,6 +271,7 @@ final class PetWindowController {
     }
 
     deinit {
+        cancelStartupGeometryRefreshes()
         NotificationCenter.default.removeObserver(self)
     }
 }

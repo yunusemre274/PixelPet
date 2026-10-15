@@ -1,7 +1,7 @@
 # Current Project State
 
-**Milestones:** ROADMAP.md M0–M14 are DONE; subsequent 64×64 artwork/behavior enhancements are recorded in ADR-017–019.
-**Latest stable work:** 2026-10-15 — Baby Yoda with a stable component model, hood/saber/training actions and sleep.
+**Milestones:** ROADMAP.md M0–M14 are DONE; subsequent 64×64 artwork/behavior enhancements are recorded in ADR-017–020.
+**Latest stable work:** 2026-10-15 — Baby Yoda with a stable component model; custom Dock startup measurement and visible-foot anchoring.
 
 ## Working
 
@@ -12,6 +12,8 @@
 - Walking starts immediately at launch/pet selection; edge collisions reverse without losing distance or interrupting walking.
 - Available travel area spans the screen edge above/beside the Dock. Walking pace is at least span / 10s, including wide displays; activity settings still determine base speed.
 - Walking frames advance only when the panel actually travels. Geometry/scale changes clamp position into valid bounds.
+- Dock initialization uses the actual current screen inset, then validates it at 0.25s/1s. A custom tile-size estimate is used only while the real inset is unavailable; auto-hide/non-Dock monitors keep their fallback behavior.
+- Bottom-Dock placement honors `anchorY × userScale`, keeping visible feet at the same Dock-relative height at 1×/2×/3×.
 - Signatures play once over five seconds, without looping back to the beginning:
   - Baby Yoda: green body, large solid black eyes, gray tunic; raise hood → draw/ignite green saber → solo training. Separate training frames and closed-eye breathing sleep also supplied.
   - Ronaldo: SIU → silver European cup lift and held finish.
@@ -34,11 +36,11 @@
 - Active-pet-only frame caching evicts previous pet assets on switching. No new runtime dependencies or private APIs.
 - `Assets/NewPetDesign/` source sheets are unchanged. `scripts/slice_sprites.py` reproducibly extracts/reflects existing poses and scales by nearest neighbor.
 - Baby Yoda is generated from one immutable set of body parts by `scripts/generate_baby_yoda.py`; other pet/source assets are unaffected.
-- Significant choices: ADR-004/007 (rendering/clock), ADR-017/018 (assets/cycle), ADR-019 (synchronization).
+- Significant choices: ADR-004/007 (rendering/clock), ADR-017/018 (assets/cycle), ADR-019 (synchronization), ADR-020 (custom Dock/Baby Yoda).
 
 ## Validation
 
-- **54 Swift tests across 11 suites pass** with `swift test`; **4 asset tests pass** with `python3 -m unittest discover -s Tests/AssetTests -v`.
+- **61 Swift tests across 13 suites pass** with `swift test`; **4 asset tests pass** with `python3 -m unittest discover -s Tests/AssetTests -v`.
 - New regressions cover launch travel, 20 exact cycles at 5Hz, time remainders, wide/narrow bounds, both screen halves across successive walks, reflection, clicks, signature travel/playback, switching and hide/show.
 - Native renderer snapshots inspected for BabyYoda, Cat, Messi, Ronaldo and Turtle across walk/skill/sleep transitions.
 - All ten manifests have five-second one-shot signatures; every frame is 64×64 RGBA. Slicer idempotence and unchanged source sheets checked.
@@ -60,5 +62,5 @@
 - Engine: `DockPet/PetEngine/{PetCoordinator,PetStateMachine,PetMovement}.swift`
 - Rendering/assets: `DockPet/Rendering/SpriteView.swift`, `DockPet/Assets/{PetManifest,PetAssetLoader}.swift`
 - Sprites: `Assets/Pets/`, `Assets/NewPetDesign/`, `scripts/{slice_sprites,generate_baby_yoda}.py`; preview: `build/previews/BabyYoda.gif`
-- Regressions: `Tests/DockPetTests/{PetCycleRegressionTests,PetEngineTests}.swift`, `Tests/AssetTests/test_baby_yoda.py`
+- Regressions: `Tests/DockPetTests/{PetCycleRegressionTests,DockStartupTests,PetEngineTests}.swift`, `Tests/AssetTests/test_baby_yoda.py`
 - Build: `scripts/build_app.sh`, `scripts/create_dmg.sh`; current release: `build/DockPet.app`

@@ -9,6 +9,24 @@ enum DockOrientation: String, CustomStringConvertible, CaseIterable {
     var description: String { rawValue }
 }
 
+/// A small preferences snapshot, injectable so geometry tests never depend on
+/// the developer's Dock. Tile size is only a provisional startup fallback.
+struct DockPreferences {
+    var orientation: DockOrientation?
+    var isAutoHide: Bool = false
+    var tileSize: CGFloat?
+
+    static func current() -> DockPreferences {
+        let defaults = UserDefaults(suiteName: "com.apple.dock")
+        let size = defaults?.double(forKey: "tilesize") ?? 0
+        return DockPreferences(
+            orientation: defaults?.string(forKey: "orientation").flatMap(DockOrientation.init(rawValue:)),
+            isAutoHide: defaults?.bool(forKey: "autohide") ?? false,
+            tileSize: size.isFinite && size > 0 ? CGFloat(size) : nil
+        )
+    }
+}
+
 /// Contains computed information about the Dock's position and dimensions,
 /// inferred from NSScreen geometry (frame vs visibleFrame) and system preferences.
 ///
@@ -57,22 +75,16 @@ enum DockGeometry {
     static func detect(
         screenFrame: CGRect,
         visibleFrame: CGRect,
-        checkDefaults: Bool = true
+        checkDefaults: Bool = true,
+        preferences: DockPreferences? = nil
     ) -> DockInfo {
         let bottomGap = visibleFrame.origin.y - screenFrame.origin.y
         let leftGap = visibleFrame.origin.x - screenFrame.origin.x
         let rightGap = screenFrame.maxX - visibleFrame.maxX
 
         // Check com.apple.dock defaults for auto-hide and orientation fallback
-        var isAutoHide = false
-        var defaultsOrientation: DockOrientation? = nil
-
-        if checkDefaults, let dockDefaults = UserDefaults(suiteName: "com.apple.dock") {
-            isAutoHide = dockDefaults.bool(forKey: "autohide")
-            if let orientStr = dockDefaults.string(forKey: "orientation") {
-                defaultsOrientation = DockOrientation(rawValue: orientStr)
-            }
-        }
+        let settings = preferences ?? (checkDefaults ? DockPreferences.current() : nil)
+        let isAutoHide = settings?.isAutoHide ?? false
 
         // Determine orientation by the largest gap between screenFrame and visibleFrame
         if bottomGap > leftGap && bottomGap > rightGap && bottomGap > 0 {
@@ -101,12 +113,16 @@ enum DockGeometry {
             )
         } else {
             // No visible Dock gap (Dock auto-hidden or on another display)
-            let fallbackOrientation = defaultsOrientation ?? .bottom
+            let fallbackOrientation = settings?.orientation ?? .bottom
+            let axisLength = fallbackOrientation == .bottom ? screenFrame.height : screenFrame.width
+            let tileSize = settings?.tileSize ?? 0
+            let provisionalThickness = !isAutoHide && tileSize.isFinite && tileSize > 0
+                ? min(tileSize, axisLength / 2) : 0
             return DockInfo(
                 orientation: fallbackOrientation,
                 screenFrame: screenFrame,
                 visibleFrame: visibleFrame,
-                dockThickness: 0,
+                dockThickness: provisionalThickness,
                 isAutoHide: isAutoHide
             )
         }
@@ -151,7 +167,8 @@ enum DockGeometry {
     static func petFrame(
         dockInfo: DockInfo,
         petSize: CGSize,
-        margin: CGFloat = 4
+        margin: CGFloat = 4,
+        anchorOffset: CGFloat = 0
     ) -> CGRect {
         let screen = dockInfo.screenFrame
         let dockTop = dockInfo.dockThickness
@@ -159,7 +176,7 @@ enum DockGeometry {
         switch dockInfo.orientation {
         case .bottom:
             let x = screen.midX - petSize.width / 2
-            let y = screen.origin.y + dockTop + margin
+            let y = screen.origin.y + dockTop + margin - anchorOffset
             return CGRect(x: x, y: y, width: petSize.width, height: petSize.height)
 
         case .left:

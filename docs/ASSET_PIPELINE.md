@@ -168,7 +168,7 @@ The `anchorY` field defines where the pet's "feet" are relative to the bottom of
 - `anchorY: 0` — feet are at the very bottom row of the sprite (default)
 - `anchorY: 2` — feet are 2 pixels above the bottom (e.g., for pets with a shadow or ground detail in the sprite)
 
-The pet engine uses this to position the pet so its feet touch the Dock boundary.
+The pet engine subtracts `anchorY × userScale` from the bottom-Dock window origin so the visible feet align with the measured Dock top plus the normal 4pt margin. This is recalculated when the Dock or pet size changes. Existing manifests with `anchorY: 0` retain their placement.
 
 ---
 

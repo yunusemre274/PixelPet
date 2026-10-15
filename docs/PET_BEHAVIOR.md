@@ -10,7 +10,7 @@ The implemented engine separates state (`PetStateMachine`), position (`PetMoveme
 | `specialAnimation` | 5 seconds | Stationary, except leading `movingFrames` configured in the manifest | Signature sequence plays once across the whole phase |
 | `sleeping` | 10 seconds | Stationary | Sleep/rest loop |
 
-The cycle repeats every 25 seconds of active application time. Loading a pet begins a fresh walking phase immediately, including movement and the appropriate refresh rate. Screen geometry and scale changes clamp position to the new valid bounds.
+The cycle repeats every 25 seconds of active application time. Loading a pet begins a fresh walking phase immediately, including movement and the appropriate refresh rate. Screen geometry and scale changes clamp position to the new valid bounds. Bottom-Dock placement subtracts `anchorY × userScale` so transparent pixels beneath the feet do not lift the character above the Dock.
 
 A boundary turns the pet around without interrupting walking. Motion preserves the distance beyond the boundary rather than losing a frame of travel. On load or display changes, the pet heads toward the larger open region. After sleep it preserves its last heading, so repeated midpoint walks visit both halves of wide displays. Speed is the greater of its activity-adjusted base speed and the available span / 10 seconds. The first walk starts from the current/center position; successive walks cover the remaining edge. Activity changes do not alter cycle durations.
 

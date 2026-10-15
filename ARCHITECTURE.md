@@ -102,6 +102,8 @@ Settings → nothing platform-specific
 
 ### DockGeometry
 
+Startup placement uses the current screen's reserved Dock inset, with an injectable `DockPreferences` snapshot for orientation/auto-hide and a provisional custom `tilesize` when the inset is not ready. `PetWindowController` validates geometry twice after showing (0.25s and 1s), then relies on screen-change notifications. No per-frame geometry polling is added. `anchorY × userScale` aligns visible feet on bottom Docks (ADR-020).
+
 **Responsibility:** Detecting Dock position, orientation, and computing pet placement geometry.
 
 **Public Interface:**

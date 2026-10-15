@@ -251,6 +251,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         switch name {
         case "CristianoRonaldo": return "Cristiano Ronaldo"
         case "LionelMessi": return "Lionel Messi"
+        case "BabyYoda": return "Baby Yoda"
         default: return name
         }
     }

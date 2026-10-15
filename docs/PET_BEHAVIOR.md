@@ -16,6 +16,7 @@ A boundary turns the pet around without interrupting walking. Motion preserves t
 
 ## Signature actions and artwork
 
+- Baby Yoda: raise the same gray hood → draw/ignite a green lightsaber → solo training. The `special` sequence includes all three beats in five seconds; `training/` also contains the reusable eight-frame practice loop. Head, ears, gray tunic and limbs come from one deterministic component model, never independent character redraws. Sleep closes the eyes and adds a small breathing motion.
 - Ronaldo: SIU sequence, then silver European cup lift and a final held pose.
 - Messi: visible ball skill while translating, goal celebration, World Cup lift ending overhead.
 - Turtle: retreat into the shell, followed by a resting pose.

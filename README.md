@@ -6,7 +6,7 @@ A native macOS desktop application where a pixel-art virtual pet lives around th
 
 **Status:** Implemented native macOS app; roadmap milestones M0–M14 are complete.
 
-Nine 64×64 pets follow a repeating **10s walk → 5s signature action → 10s sleep** cycle. Movement covers the full screen edge above/beside the Dock, with automatic turnaround. See [PROJECT_STATE.md](PROJECT_STATE.md) for current validation and [DECISIONS.md](DECISIONS.md) for later behavior and rendering decisions.
+Ten 64×64 pets follow a repeating **10s walk → 5s signature action → 10s sleep** cycle. Movement covers the full screen edge above/beside the Dock, with automatic turnaround. See [PROJECT_STATE.md](PROJECT_STATE.md) for current validation and [DECISIONS.md](DECISIONS.md) for later behavior and rendering decisions.
 
 Build and launch on macOS 14+ with Xcode's Swift toolchain:
 
@@ -30,6 +30,7 @@ The application is:
 
 | Pet | Status |
 |-----|--------|
+| Baby Yoda | Gray hood, green lightsaber, solo training, sleep |
 | Cat | Walking, yarn play, sleep |
 | Dog | Walking, celebration, sleep |
 | Parrot | Walking, wing flapping, sleep |
@@ -40,7 +41,7 @@ The application is:
 | Cristiano Ronaldo | Walking, SIU → silver European cup lift, rest |
 | Lionel Messi | Walking, visible ball skill → goal celebration → World Cup lift, rest |
 
-All artwork is created manually by the project owner. The application defines a clean [asset pipeline](docs/ASSET_PIPELINE.md) so sprites can be dropped into predefined folders.
+Original pet artwork is supplied by the project owner; Baby Yoda uses a deterministic pixel-art generator. The application defines a clean [asset pipeline](docs/ASSET_PIPELINE.md) so sprites can be dropped into predefined folders.
 
 ## Architecture Overview
 

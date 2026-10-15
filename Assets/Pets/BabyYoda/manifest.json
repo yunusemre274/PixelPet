@@ -1,0 +1,40 @@
+{
+  "name": "BabyYoda",
+  "version": 2,
+  "spriteSize": {
+    "width": 64,
+    "height": 64
+  },
+  "scale": 1,
+  "anchorY": 2,
+  "animations": {
+    "idle": {
+      "fps": 2,
+      "loop": true
+    },
+    "walk": {
+      "fps": 6,
+      "loop": true
+    },
+    "sleep": {
+      "fps": 2,
+      "loop": true
+    },
+    "interaction": {
+      "fps": 4,
+      "loop": false
+    },
+    "special": {
+      "fps": 4.0,
+      "loop": false
+    },
+    "training": {
+      "fps": 6,
+      "loop": true
+    }
+  },
+  "movement": {
+    "walkSpeed": 85.0,
+    "runSpeed": 130.0
+  }
+}

@@ -232,3 +232,11 @@ To add a new pet type (e.g., "Fox"):
 - [ ] Sprite is drawn facing right
 - [ ] No anti-aliasing on sprite edges (pixel art should have hard edges)
 - [ ] Transparent background (no solid background color)
+
+## Baby Yoda component artwork
+
+Run `python3 scripts/generate_baby_yoda.py` to regenerate only `Assets/Pets/BabyYoda/`. The existing Pillow dependency is reused; other pet assets and source sheets are untouched. One canonical green head with pure black eyes, ears, gray torso, sleeves and feet is reused for every pose. Animation only translates those parts and adds eyelids, a gray hood, or a green saber. Output is 64×64 RGBA with 2× nearest-neighbor blocks and binary alpha.
+
+The twenty-frame signature uses 8 hood frames, 4 draw/ignition frames and 8 training frames at 4fps. A separate `training/` loop is available to the loader, while the normal 25s behavior cycle plays training as the end of `special/`. `anchorY: 2` records the two transparent pixels beneath the feet.
+
+Verify model invariants and saved frames with `python3 -m unittest discover -s Tests/AssetTests -v`.

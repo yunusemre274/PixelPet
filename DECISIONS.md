@@ -408,3 +408,22 @@
 - Visual morphing/flickering is completely eliminated.
 - Physical memory footprint drops further to **13.0 MB**!
 
+
+---
+
+## ADR-019 — Shared Movement/Animation Clock and Cycle Corrections
+
+**Status:** ACCEPTED
+**Date:** 2026-10-15
+
+**Context:** ADR-018 described a 25-second cycle, but initial walking never started the movement motor. Clamping every tick to 0.1s doubled sleep duration at 5Hz. A separate sprite timer allowed walking in place, and looping skills restarted before their five-second slot finished. Fixed 110pt/s could not cover wide displays.
+
+**Decision:**
+- Keep AppKit/Core Graphics, CADisplayLink, existing engine boundaries and the active-pet cache. Add no dependencies.
+- Drive state, translation and sprite frames from the coordinator's single display-link clock. Preserve elapsed-time remainders at state boundaries; accept ordinary 0.2s sleep ticks. Pause across callback gaps greater than one second.
+- Explicitly apply walking behavior on load/start. Preserve phase time, sprite progress and direction across click/visibility interruptions; pet selection starts a fresh cycle.
+- Reflect edge overshoot, clamp on geometry changes, preserve heading after sleep to visit both halves of wide displays, and use a minimum walking pace of available span / 10 seconds. User activity sets base pace without changing the 10/5/10 durations.
+- Play signatures once over five seconds. Optional manifest `movingFrames` keeps leading ball-skill frames translating while celebrations remain stationary.
+- Preserve all source sheets. Select coherent existing cat poses, visible Messi ball frames, Ronaldo SIU/cup frames and quieter resting poses. Draw yarn/sleep marks as native pixel overlays.
+
+**Consequences:** Walking poses freeze without actual travel, low-frequency sleep retains correct timing, and skills show a complete ordered sequence. Source art remains reusable; runtime effects add no frame-cache growth. Regression tests cover the integration failures that pure state tests missed. The 10–30MB target is evaluated using release physical footprint, with current measurements recorded in `PROJECT_STATE.md`.

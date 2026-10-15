@@ -63,6 +63,7 @@ final class PetCoordinator {
     private var displayLink: CADisplayLink?
     private var lastTimestamp: CFTimeInterval = 0
     private var dockInfo: DockInfo?
+    private var interruptedAnimationTime: TimeInterval = 0
 
     init(panel: PetPanel, spriteView: SpriteView, assetLoader: PetAssetLoader) {
         self.panel = panel
@@ -70,6 +71,7 @@ final class PetCoordinator {
         self.assetLoader = assetLoader
         self.stateMachine = PetStateMachine()
         self.movement = PetMovement()
+        self.movement.traversalDuration = stateMachine.walkDuration
 
         setupCallbacks()
     }
@@ -141,8 +143,9 @@ final class PetCoordinator {
             updatePanelPosition(dockInfo: dockInfo, petSize: displaySize)
         }
 
-        // Load and set initial animation
-        switchAnimation(to: stateMachine.state)
+        stateMachine.restartCycle()
+        interruptedAnimationTime = 0
+        handleStateChange(from: .idle, to: .walking)
 
         print("[PetCoordinator] Loaded pet: \(petName) (\(manifest.spriteSize.width)×\(manifest.spriteSize.height) @\(userScale)x)")
     }
@@ -155,12 +158,15 @@ final class PetCoordinator {
         self.dockInfo = dockInfo
 
         let petSize = currentPetDisplaySize
-        if isFirst || changedOrientation || changedScreen || movement.positionX == 0 {
+        if isFirst || changedOrientation || changedScreen {
             let baseFrame = DockGeometry.petFrame(dockInfo: dockInfo, petSize: petSize)
             let initialPos = (dockInfo.orientation == .bottom) ? baseFrame.origin.x : baseFrame.origin.y
             movement.setPosition(initialPos)
         }
         updatePanelPosition(dockInfo: dockInfo, petSize: petSize)
+        if stateMachine.state == .walking && (isFirst || changedOrientation || changedScreen) {
+            movement.startMoving(bounds: DockGeometry.movementBounds(dockInfo: dockInfo, petSize: petSize))
+        }
     }
 
     /// Starts the update loop.
@@ -168,10 +174,10 @@ final class PetCoordinator {
         guard displayLink == nil else { return }
 
         let link = spriteView.displayLink(target: self, selector: #selector(tick(_:)))
-        // Start throttled (5-10Hz) when idle to save CPU & battery
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 5, maximum: 10, preferred: 5)
+        lastTimestamp = 0
         link.add(to: .main, forMode: .common)
         self.displayLink = link
+        handleStateChange(from: stateMachine.state, to: stateMachine.state)
 
         print("[PetCoordinator] Update loop started")
     }
@@ -180,6 +186,8 @@ final class PetCoordinator {
     func stop() {
         displayLink?.invalidate()
         displayLink = nil
+        lastTimestamp = 0
+        movement.stopMoving()
         spriteView.stopAnimation()
         print("[PetCoordinator] Update loop stopped")
     }
@@ -210,24 +218,40 @@ final class PetCoordinator {
         let deltaTime = lastTimestamp > 0 ? timestamp - lastTimestamp : 1.0 / 60.0
         lastTimestamp = timestamp
 
-        // Cap deltaTime to avoid jumps after app sleep
-        let dt = min(deltaTime, 0.1)
+        // A 5Hz sleep tick is 0.2s: never clamp ordinary low-frequency ticks.
+        // Suspend across OS sleep/debugger stalls rather than teleporting.
+        guard deltaTime <= 1 else { return }
+        advance(deltaTime: deltaTime)
+    }
 
-        // Update state machine
-        stateMachine.update(deltaTime: dt)
-
-        // Only update movement & window frame when moving to save CPU/battery
-        if movement.isMoving, let dockInfo {
-            let petSize = currentPetDisplaySize
-            let bounds = DockGeometry.movementBounds(dockInfo: dockInfo, petSize: petSize)
-
-            let hitBoundary = movement.update(deltaTime: dt, bounds: bounds)
-            if hitBoundary {
-                stateMachine.handleEvent(.hitBoundary)
+    /// Shared clock for state, translation and sprite frames; also used by tests.
+    func advance(deltaTime: TimeInterval) {
+        stateMachine.update(deltaTime: deltaTime) { [self] step in
+            let isWalk = stateMachine.state == .walking
+            let movingFrames = manifest?.animations["special"]?.movingFrames ?? 0
+            let skillTravelEnd = Double(movingFrames) / Double(max(1, spriteView.frames.count)) * stateMachine.skillDuration
+            let travelTime: TimeInterval
+            if isWalk {
+                travelTime = step
+            } else if stateMachine.state == .specialAnimation {
+                travelTime = min(step, max(0, skillTravelEnd - spriteView.animationElapsed))
+            } else {
+                travelTime = 0
             }
 
-            // Update panel position
-            updatePanelPosition(dockInfo: dockInfo, petSize: petSize)
+            var didTravel = false
+            if travelTime > 0, let dockInfo {
+                let bounds = DockGeometry.movementBounds(dockInfo: dockInfo, petSize: currentPetDisplaySize)
+                let previous = movement.positionX
+                movement.isMoving = true
+                movement.traversalDuration = isWalk ? stateMachine.walkDuration : nil
+                movement.update(deltaTime: travelTime, bounds: bounds)
+                didTravel = movement.positionX != previous
+                if didTravel { updatePanelPosition(dockInfo: dockInfo, petSize: currentPetDisplaySize) }
+            }
+            movement.isMoving = travelTime > 0 && didTravel
+            // A walking pose only advances when the panel actually travels.
+            if !isWalk || didTravel { spriteView.updateAnimation(deltaTime: step) }
         }
 
         // Update sprite direction based on movement direction and Dock orientation
@@ -243,20 +267,27 @@ final class PetCoordinator {
 
     private func handleStateChange(from oldState: PetState, to newState: PetState) {
         print("[PetCoordinator] State: \(oldState.rawValue) → \(newState.rawValue)")
+        if newState == .interaction && oldState != .interaction {
+            interruptedAnimationTime = spriteView.animationElapsed
+        }
 
         switch newState {
         case .walking:
             // Ramp up to high refresh rate (60-120Hz) for fluid walk animation
             displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 60)
-            if let dockInfo {
+            if oldState == .idle, let dockInfo {
                 let bounds = DockGeometry.movementBounds(dockInfo: dockInfo, petSize: currentPetDisplaySize)
                 movement.startMoving(bounds: bounds)
             } else {
+                // Retain the last heading on waking. Re-choosing the open side
+                // at the midpoint can repeat the same half of a wide display.
                 movement.startMoving()
             }
         case .specialAnimation:
-            // 30-60Hz during skill animation
-            displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 30)
+            let travels = (manifest?.animations["special"]?.movingFrames ?? 0) > 0
+            displayLink?.preferredFrameRateRange = travels
+                ? CAFrameRateRange(minimum: 30, maximum: 60, preferred: 30)
+                : CAFrameRateRange(minimum: 5, maximum: 10, preferred: 10)
             movement.stopMoving()
         case .sleeping:
             // Throttle to 5-10Hz when sleeping to save energy
@@ -267,10 +298,12 @@ final class PetCoordinator {
             movement.stopMoving()
         }
 
-        switchAnimation(to: newState)
+        let elapsed = oldState == .interaction && newState != .interaction ? interruptedAnimationTime :
+            (oldState == newState ? spriteView.animationElapsed : 0)
+        switchAnimation(to: newState, elapsed: elapsed)
     }
 
-    private func switchAnimation(to state: PetState) {
+    private func switchAnimation(to state: PetState, elapsed: TimeInterval = 0) {
         guard let petName = currentPetName else { return }
 
         let animationName = animationKey(for: state)
@@ -281,10 +314,13 @@ final class PetCoordinator {
         }
 
         let config = manifest?.animations[animationName]
-        let fps = config?.fps ?? (state == .specialAnimation ? 6.0 : 4.0)
-        let loop = (state == .specialAnimation || state == .walking || state == .sleeping) ? true : (config?.loop ?? false)
-
-        spriteView.setAnimation(frames: frames, fps: fps, loop: loop)
+        let fps = state == .specialAnimation ? Double(frames.count) / stateMachine.skillDuration : (config?.fps ?? 4.0)
+        let loop = state == .specialAnimation ? false : (config?.loop ?? false)
+        spriteView.effect = state == .specialAnimation && petName == "Cat" ? .yarn :
+            (state == .sleeping && ["CristianoRonaldo", "LionelMessi"].contains(petName) ? .sleep : .none)
+        spriteView.usesWalkBob = state == .walking && petName == "Cat"
+        spriteView.setAnimation(frames: frames, fps: fps, loop: loop, elapsed: elapsed)
+        if state == .idle { spriteView.stopAnimation() }
     }
 
     /// Maps PetState to animation folder name.
@@ -301,6 +337,7 @@ final class PetCoordinator {
     // MARK: - Positioning
 
     private func updatePanelPosition(dockInfo: DockInfo, petSize: CGSize) {
+        movement.clampPosition(to: DockGeometry.movementBounds(dockInfo: dockInfo, petSize: petSize))
         var frame = DockGeometry.petFrame(dockInfo: dockInfo, petSize: petSize)
 
         switch dockInfo.orientation {

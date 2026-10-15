@@ -196,6 +196,9 @@ The core domain layer. Contains NO platform dependencies.
 **Testability:** Integration test (needs view), but animation-selection logic can be unit-tested.
 
 **Implementation Notes:**
+- `PetCoordinator` owns one CADisplayLink clock for state, movement and `SpriteView.updateAnimation(deltaTime:)`. Rendering has no independent animation timer (ADR-019).
+- Each state transition splits elapsed time before advancing the next phase. Walking poses advance only with actual panel travel; special sequences play once over five seconds.
+- Small pixel props (cat yarn, footballer sleep marks) are drawn with Core Graphics, preserving source sheets and the active-pet asset cache.
 - Nearest-neighbor interpolation: `magnificationFilter = .nearest` (Core Animation) or `filteringMode = .nearest` (SpriteKit)
 - Integer scaling only — no fractional sprite sizes
 - Retina: work in points, let the system handle backing scale

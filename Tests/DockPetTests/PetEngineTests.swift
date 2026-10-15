@@ -205,9 +205,7 @@ struct PetMovementTests {
         movement.startMoving()
 
         // Force direction right
-        while movement.direction != .right {
-            movement.startMoving()
-        }
+        movement.setDirection(.right)
 
         let hitBoundary = movement.update(deltaTime: 1.0, bounds: bounds)
 
@@ -222,14 +220,12 @@ struct PetMovementTests {
         movement.speed = 50.0
         movement.startMoving()
 
-        while movement.direction != .right {
-            movement.startMoving()
-        }
+        movement.setDirection(.right)
 
         let hitBoundary = movement.update(deltaTime: 1.0, bounds: bounds)
 
         #expect(hitBoundary == true)
-        #expect(movement.positionX == 500)
+        #expect(movement.positionX == 460)
         #expect(movement.direction == .left)
     }
 
@@ -240,14 +236,12 @@ struct PetMovementTests {
         movement.speed = 50.0
         movement.startMoving()
 
-        while movement.direction != .left {
-            movement.startMoving()
-        }
+        movement.setDirection(.left)
 
         let hitBoundary = movement.update(deltaTime: 1.0, bounds: bounds)
 
         #expect(hitBoundary == true)
-        #expect(movement.positionX == 10)
+        #expect(movement.positionX == 50)
         #expect(movement.direction == .right)
     }
 }

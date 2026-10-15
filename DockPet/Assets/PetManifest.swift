@@ -21,6 +21,8 @@ struct PetManifest: Codable, Equatable {
     struct AnimationConfig: Codable, Equatable {
         let fps: Double
         let loop: Bool
+        /// Leading frames that travel during a signature animation (e.g. dribbling).
+        var movingFrames: Int? = nil
     }
 
     struct MovementConfig: Codable, Equatable {

@@ -4,11 +4,11 @@ Advanced Sprite Sheet Slicer & 64x64 Pixel-Art Renderer for DockPet
 ===================================================================
 Produces uniform, cohesive, non-morphing 64×64 pixel-art animation frames
 for all 9 pet types:
-  - Lionel Messi: Running walk, skill (Dribble + Goal slide + World Cup lift), Sleep
-  - Cristiano Ronaldo: Running walk, skill (Dribble + SIU celebration + Champions Cup), Sleep
+  - Lionel Messi: Running walk, visible ball skill + Goal celebration + World Cup lift, Rest
+  - Cristiano Ronaldo: Running walk, SIU celebration + European cup lift, Rest
   - Turtle: 4-leg walk, skill (Retreat into shell), Sleep with zzz
   - Dog: 4-leg walk, skill (Dancing on hind legs with hearts), Sleep curled up
-  - Cat: Walk cycle, skill (Playing with fish toy & box), Sleep curled up with z
+  - Cat: Consistent walking pose, crouch/paw poses with native yarn effect, Sleep curled up
   - Hamster: Running walk, skill (Eating sunflower seeds & cheek pouch), Sleep with zzz
   - Dinosaur: Stomping walk, skill (Roaring fire stomp), Sleep with zzz
   - Parrot: 2-leg walk, skill (Flying & flapping wings), Sleep with zzz
@@ -19,14 +19,14 @@ import json
 import os
 import sys
 from pathlib import Path
-from PIL import Image, ImageEnhance
+from PIL import Image
 
 SPRITE_SHEET_DIR = Path("Assets/NewPetDesign")
 OUTPUT_DIR = Path("Assets/Pets")
 TARGET_SIZE = 64
 
 def create_manifest(pet_name: str, anim_counts: dict) -> dict:
-    return {
+    manifest = {
         "name": pet_name,
         "version": 2,
         "spriteSize": {"width": 64, "height": 64},
@@ -37,13 +37,16 @@ def create_manifest(pet_name: str, anim_counts: dict) -> dict:
             "walk": {"fps": 8.0, "loop": True},
             "sleep": {"fps": 2.0, "loop": True},
             "interaction": {"fps": 6.0, "loop": False},
-            "special": {"fps": 6.0, "loop": True},
+            "special": {"fps": anim_counts["special"] / 5.0, "loop": False},
         },
         "movement": {
             "walkSpeed": 110.0,
             "runSpeed": 160.0,
         },
     }
+    if pet_name == "LionelMessi":
+        manifest["animations"]["special"]["movingFrames"] = 8
+    return manifest
 
 def save_scaled_frame(img_cell: Image.Image, output_path: Path):
     """Upscales 32x32 cell to 64x64 using nearest neighbor, ensuring RGBA mode."""
@@ -72,13 +75,6 @@ def process_standard_pet(pet_name: str, filename: str, mapping: dict):
             x1 = col * 32
             y1 = row * 32
             cell = img.crop((x1, y1, x1 + 32, y1 + 32))
-
-            if anim_name == "sleep" and pet_name in ("LionelMessi", "CristianoRonaldo"):
-                enhancer = ImageEnhance.Brightness(cell)
-                darkened = enhancer.enhance(0.7)
-                _, _, _, a = cell.split()
-                dr, dg, db, _ = darkened.split()
-                cell = Image.merge("RGBA", (dr, dg, db, a))
 
             save_scaled_frame(cell, anim_dir / f"frame_{idx:02d}.png")
 
@@ -161,14 +157,14 @@ def process_cat():
     pet_dir = OUTPUT_DIR / pet_name
     pet_dir.mkdir(parents=True, exist_ok=True)
 
-    # Walk: use consistent walking cat frames (Row 3 col 0, col 4, col 6, col 7)
-    walk_coords = [(3, 0), (3, 4), (3, 6), (3, 7)]
+    # Walk: one consistent side-on model; the renderer adds a small stride bob.
+    walk_coords = [(6, 5)] * 4
     walk_dir = pet_dir / "walk"
     walk_dir.mkdir(parents=True, exist_ok=True)
     for old in walk_dir.glob("*.png"): old.unlink()
     for idx, (r, c) in enumerate(walk_coords):
         cell = img.crop((c * 32, r * 32, (c + 1) * 32, (r + 1) * 32))
-        save_scaled_frame(cell, walk_dir / f"frame_{idx:02d}.png")
+        save_scaled_frame(cell.transpose(Image.Transpose.FLIP_LEFT_RIGHT), walk_dir / f"frame_{idx:02d}.png")
 
     # Idle: gentle sitting & blinking (Row 0 col 0, col 2, col 0, col 1)
     idle_coords = [(0, 0), (0, 2), (0, 0), (0, 1)]
@@ -179,8 +175,8 @@ def process_cat():
         cell = img.crop((c * 32, r * 32, (c + 1) * 32, (r + 1) * 32))
         save_scaled_frame(cell, idle_dir / f"frame_{idx:02d}.png")
 
-    # Sleep: curled up sleeping cat with z (Row 5 col 4, Row 7 col 4)
-    sleep_coords = [(5, 4), (7, 4), (5, 4), (7, 4)]
+    # Sleep: keep one curled-up silhouette with z (Row 5 col 4).
+    sleep_coords = [(5, 4)] * 4
     sleep_dir = pet_dir / "sleep"
     sleep_dir.mkdir(parents=True, exist_ok=True)
     for old in sleep_dir.glob("*.png"): old.unlink()
@@ -188,8 +184,8 @@ def process_cat():
         cell = img.crop((c * 32, r * 32, (c + 1) * 32, (r + 1) * 32))
         save_scaled_frame(cell, sleep_dir / f"frame_{idx:02d}.png")
 
-    # Special (Skill): cardboard box popup + playing with fish toy
-    special_coords = [(5, 2), (5, 2), (7, 2), (7, 3), (7, 2), (7, 3), (5, 2), (0, 1)]
+    # Special: coherent crouch/paw poses; yarn is a native pixel overlay.
+    special_coords = [(2, 0), (5, 7)] * 4
     special_dir = pet_dir / "special"
     special_dir.mkdir(parents=True, exist_ok=True)
     for old in special_dir.glob("*.png"): old.unlink()
@@ -216,24 +212,24 @@ def main():
     print("DockPet Unified Slicer & Cohesive Pixel Art Pipeline")
     print("=" * 60)
 
-    # 1. Cristiano Ronaldo: 8 frames walk, 4 frames sleep, 16 frames skill (dribble + SIU + trophy)
+    # 1. Cristiano Ronaldo: 8 walk, 4 rest, 20 skill frames (SIU + cup lift/hold).
     process_standard_pet("CristianoRonaldo", "CristianoRonaldo.png", {
         "idle": [(0, c) for c in range(8)],
         "walk": [(1, c) for c in range(8)],
-        "sleep": [(0, 0), (0, 2), (0, 0), (0, 2)],
+        "sleep": [(7, 7)] * 4,
         "interaction": [(5, c) for c in range(8)],
-        # Skill: Dribble (Row 3, 8f) + SIU celebration (Row 6, 8f) + Trophy (Row 4, 4f)
-        "special": [(3, c) for c in range(8)] + [(6, c) for c in range(8)] + [(4, c) for c in range(4)],
+        # Skill: SIU (8f), then silver European cup lift with a final hold (12f).
+        "special": [(6, c) for c in range(8)] + [(4, c) for c in [0, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3]],
     })
 
-    # 2. Lionel Messi: 8 frames walk, 4 frames sleep, 20 frames skill (dribble + goal slide + World Cup lift)
+    # 2. Lionel Messi: 8 walk, 4 rest, 24 skill frames (ball + celebration + World Cup).
     process_standard_pet("LionelMessi", "LionelMessi.png", {
         "idle": [(0, c) for c in range(8)],
         "walk": [(2, c) for c in range(8)],
-        "sleep": [(0, 0), (0, 2), (0, 0), (0, 2)],
+        "sleep": [(3, 0)] * 4,
         "interaction": [(3, c) for c in range(8)],
-        # Skill: Dribble (Row 4, 8f) + Goal slide (Row 6, 8f) + World Cup (Row 5, 8f)
-        "special": [(4, c) for c in range(8)] + [(6, c) for c in range(8)] + [(5, c) for c in range(8)],
+        # Skill: visible ball (8f), goal celebration (8f), World Cup ending overhead (8f).
+        "special": [(1, c) for c in range(8)] + [(6, c) for c in range(8)] + [(5, c) for c in [2, 3, 4, 5, 6, 0, 1, 7]],
     })
 
     # 3. Turtle: 8 frames walk on 4 legs, 8 frames sleep with zzz, 8 frames skill (shell retreat)
@@ -284,7 +280,7 @@ def main():
     # 8. Dog: Clean crop walk, sleep, and heart dancing skill
     process_dog()
 
-    # 9. Cat: Clean ginger cat walk, sleep with z, and box/fish skill
+    # 9. Cat: Coherent ginger cat walk, sleep with z, and paw/yarn skill.
     process_cat()
 
     print("\nAll 9 pets successfully processed with cohesive, non-morphing animations.")

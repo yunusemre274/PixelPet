@@ -18,6 +18,11 @@ final class PetMovement {
     /// Movement speed in points per second (default 110 pt/s for full Dock coverage).
     var speed: CGFloat = 110.0
 
+    /// Optional minimum pace needed to cover the current Dock span in one walk.
+    var traversalDuration: TimeInterval?
+
+    private(set) var effectiveSpeed: CGFloat = 110.0
+
     /// Whether the pet is currently moving.
     var isMoving: Bool = false
 
@@ -48,6 +53,10 @@ final class PetMovement {
         }
     }
 
+    func clampPosition(to bounds: ClosedRange<CGFloat>) {
+        positionX = min(max(positionX, bounds.lowerBound), bounds.upperBound)
+    }
+
     /// Stops movement.
     func stopMoving() {
         isMoving = false
@@ -61,22 +70,23 @@ final class PetMovement {
     /// - Returns: `true` if the pet hit a boundary and turned around.
     @discardableResult
     func update(deltaTime: TimeInterval, bounds: ClosedRange<CGFloat>) -> Bool {
-        guard isMoving else { return false }
-
-        let delta = speed * CGFloat(deltaTime) * (direction == .right ? 1 : -1)
-        positionX += delta
-
-        // Boundary clamping and automatic turnaround
-        if positionX <= bounds.lowerBound {
-            positionX = bounds.lowerBound
-            direction = .right
-            return true
-        } else if positionX >= bounds.upperBound {
-            positionX = bounds.upperBound
-            direction = .left
-            return true
+        guard isMoving, deltaTime.isFinite, deltaTime > 0 else { return false }
+        clampPosition(to: bounds)
+        let span = bounds.upperBound - bounds.lowerBound
+        guard span > 0 else { return false }
+        effectiveSpeed = max(0, speed)
+        if let duration = traversalDuration, duration > 0 {
+            effectiveSpeed = max(effectiveSpeed, span / CGFloat(duration))
         }
-
-        return false
+        // Reflect overshoot instead of discarding distance at an edge. This also
+        // handles narrow displays and multiple turnarounds in a single update.
+        let distance = effectiveSpeed * CGFloat(deltaTime)
+        let offset = positionX - bounds.lowerBound
+        let unfolded = (direction == .right ? offset : 2 * span - offset) + distance
+        let phase = unfolded.truncatingRemainder(dividingBy: 2 * span)
+        positionX = bounds.lowerBound + (phase <= span ? phase : 2 * span - phase)
+        let hitBoundary = distance >= (direction == .right ? span - offset : offset)
+        direction = phase < span ? .right : .left
+        return hitBoundary
     }
 }

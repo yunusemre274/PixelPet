@@ -203,6 +203,14 @@ All other animation states are optional.
 
 ## Adding a New Pet
 
+### Signature sequence timing
+
+`special/` frames play once, in filename order, across the fixed five-second skill phase. The coordinator derives FPS from frame count / 5; `special.loop` is false in generated manifests. Ending a sequence early does not shorten the phase.
+
+An optional `movingFrames` integer in an animation configuration specifies how many leading special frames translate along the Dock at walking speed. Existing manifests without it remain stationary during skills. Messi uses 8 moving frames, followed by stationary goal celebration and World Cup frames. Walking speed is at least the available screen-edge span / 10 seconds, so large displays remain traversable regardless of the base activity setting.
+
+`scripts/slice_sprites.py` extracts existing artist-authored cells, reflects the cat's side-facing walk, and uses nearest-neighbor scaling. Do not regenerate `Assets/NewPetDesign/`. Yarn and sleep marks are runtime pixel overlays, not modifications to those source sheets.
+
 To add a new pet type (e.g., "Fox"):
 
 1. Create folder: `Assets/Pets/Fox/`

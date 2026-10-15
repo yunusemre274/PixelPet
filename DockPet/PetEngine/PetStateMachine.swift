@@ -46,6 +46,7 @@ final class PetStateMachine {
 
     /// State that was active before an interaction interrupt.
     private var interruptedState: PetState = .walking
+    private var interruptedTimer: TimeInterval = 10.0
 
     // MARK: - Exact Durations (As Requested)
 
@@ -88,12 +89,25 @@ final class PetStateMachine {
     // MARK: - Update
 
     /// Advances the state timer by `deltaTime`. Transitions when expired.
-    func update(deltaTime: TimeInterval) {
-        stateTimer -= deltaTime
-
-        if stateTimer <= 0 {
+    func update(deltaTime: TimeInterval, onAdvance: ((TimeInterval) -> Void)? = nil) {
+        guard deltaTime.isFinite, deltaTime > 0 else { return }
+        var remaining = deltaTime
+        while remaining > 0 {
+            let step = min(remaining, max(0, stateTimer))
+            onAdvance?(step)
+            stateTimer -= step
+            remaining -= step
+            if stateTimer > 0.000000001 { break }
             handleEvent(.timerExpired)
         }
+    }
+
+    /// A newly selected pet always begins with a full walking phase.
+    func restartCycle() {
+        state = .walking
+        stateTimer = walkDuration
+        interruptedState = .walking
+        interruptedTimer = walkDuration
     }
 
     // MARK: - Events
@@ -111,7 +125,7 @@ final class PetStateMachine {
             // Reaching the Dock boundary does NOT stop the walk; the pet simply turns around
             break
 
-        case (.specialAnimation, .timerExpired), (.specialAnimation, .animationComplete):
+        case (.specialAnimation, .timerExpired):
             // 5s skill finished → 10s sleep
             transition(to: .sleeping)
 
@@ -125,12 +139,14 @@ final class PetStateMachine {
         case (.walking, .clicked), (.specialAnimation, .clicked), (.sleeping, .clicked), (.idle, .clicked):
             // Click interrupt: save current state and show reaction
             interruptedState = state
+            interruptedTimer = stateTimer
             transition(to: .interaction)
 
         case (.interaction, .timerExpired), (.interaction, .animationComplete):
             // Return to interrupted state or continue walking
             let resumeState = (interruptedState == .interaction) ? .walking : interruptedState
             transition(to: resumeState)
+            stateTimer = interruptedTimer
 
         default:
             break

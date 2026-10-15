@@ -4,10 +4,17 @@ A native macOS desktop application where a pixel-art virtual pet lives around th
 
 ## Project Status
 
-**Current Milestone:** M0 — Documentation & Architecture  
-**Status:** DONE — M1 (Window Proof of Concept) is next
+**Status:** Implemented native macOS app; roadmap milestones M0–M14 are complete.
 
-No application code has been written yet. The project is in the documentation and design phase.
+Nine 64×64 pets follow a repeating **10s walk → 5s signature action → 10s sleep** cycle. Movement covers the full screen edge above/beside the Dock, with automatic turnaround. See [PROJECT_STATE.md](PROJECT_STATE.md) for current validation and [DECISIONS.md](DECISIONS.md) for later behavior and rendering decisions.
+
+Build and launch on macOS 14+ with Xcode's Swift toolchain:
+
+```sh
+swift test
+./scripts/build_app.sh --release
+open build/DockPet.app
+```
 
 ## What Is DockPet?
 
@@ -23,13 +30,15 @@ The application is:
 
 | Pet | Status |
 |-----|--------|
-| Cat | Artwork pending |
-| Dog | Artwork pending |
-| Parrot | Artwork pending |
-| Rabbit | Artwork pending |
-| Turtle | Artwork pending |
-| Dinosaur | Artwork pending |
-| Hamster | Artwork pending |
+| Cat | Walking, yarn play, sleep |
+| Dog | Walking, celebration, sleep |
+| Parrot | Walking, wing flapping, sleep |
+| Rabbit | Hopping, carrot snack, sleep |
+| Turtle | Walking, shell retreat, sleep |
+| Dinosaur | Walking, roar, sleep |
+| Hamster | Walking, seeds, sleep |
+| Cristiano Ronaldo | Walking, SIU → silver European cup lift, rest |
+| Lionel Messi | Walking, visible ball skill → goal celebration → World Cup lift, rest |
 
 All artwork is created manually by the project owner. The application defines a clean [asset pipeline](docs/ASSET_PIPELINE.md) so sprites can be dropped into predefined folders.
 
